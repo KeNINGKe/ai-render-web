@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T07:48:34.800Z",
+  "generatedAt": "2026-10-30T08:11:44.766Z",
   "sourceCommit": null,
   "preview": false,
   "entry": "index.html",
@@ -30,8 +30,8 @@
     },
     {
       "path": "index.html",
-      "bytes": 17029,
-      "sha256": "a7ce796ff4654983f5a4a8d3c7dc1045923cebd1e1ac3ac0daed097d9c73158a"
+      "bytes": 16894,
+      "sha256": "1b0786b54075ec5982c37a2d244a6e568457bd4bb0ce355091535386e645021f"
     },
     {
       "path": "mask-tools.js",
