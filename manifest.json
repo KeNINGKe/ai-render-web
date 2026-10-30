@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T07:32:41.284Z",
+  "generatedAt": "2026-10-30T07:48:34.800Z",
   "sourceCommit": null,
   "preview": false,
   "entry": "index.html",
@@ -15,8 +15,8 @@
     },
     {
       "path": "app-core.js",
-      "bytes": 69554,
-      "sha256": "4046910327de85944849826a0d882f9ef73cadd55981f079d9b93c6d27d9b476"
+      "bytes": 69174,
+      "sha256": "28978998a3828c1446195f9e803df7d40500663e265b168a3366ca83e27dce14"
     },
     {
       "path": "browser-render-store.js",
@@ -80,8 +80,8 @@
     },
     {
       "path": "styles.css",
-      "bytes": 39882,
-      "sha256": "4b24fb01b17593e7c98db2835b2bddd2ed5d3c36d58576a750f3988700a48241"
+      "bytes": 39770,
+      "sha256": "478e7946d514a7362a3496744dee200b4c0df84942e78d904cc6e73aa4b13301"
     }
   ]
 }

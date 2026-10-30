@@ -144,19 +144,13 @@ function showModeInfo() {
   $("#rememberKeyRow").hidden = false;
   $("#historyStorageLabel").textContent = "自动保存到当前浏览器";
   document.querySelector("#customModelInput + .settings-note").textContent = "填写兼容图生图接口的模型 ID 或推理接入点，覆盖下拉选择。";
-  $("#userBadge").hidden = false;
-  $("#userName").textContent = "浏览器直连";
-  $("#logoutButton").textContent = "退出入口";
+  // 不显示用户徽标/退出按钮：解锁与未记住的 Key 都只活在当前页面，关页即退出
   $("#rememberKey").addEventListener("change", () => {
     if (!$("#rememberKey").checked) {
       writeLs(LS_API_KEY, "");
       writeLs(LS_REMEMBER_KEY, "");
     }
   });
-  const notice = document.createElement("p");
-  notice.className = "static-notice";
-  notice.textContent = `图片与提示词发送至火山云端；历史与参考图仅存当前浏览器。每日 ${RUNTIME_CONFIG.dailyLimit || 50} 次为可重置的本地软限制。清除浏览器数据会丢失历史。`;
-  $(".console-header").after(notice);
   document.querySelector(".ref-gallery-title span").textContent = "点击调入为主图 · 当前浏览器保留 8 张";
   applyRoleToSettings();
 }

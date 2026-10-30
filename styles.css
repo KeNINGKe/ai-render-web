@@ -83,7 +83,6 @@ body {
 .access-card small { display: block; font-size: 12px; }
 .remember-key { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; font-size: 13px; }
 .remember-key span { width: 100%; color: var(--muted); font-size: 12px; }
-.static-notice { color: var(--ink-2); font-size: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .result-recovery { display: block; margin-top: 12px; color: var(--accent-deep); }
 
 /* ---------- 页眉：图纸标题栏 ---------- */
