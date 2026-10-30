@@ -26,6 +26,7 @@ const LS_MODEL = STORAGE_PREFIX + "seedream_model";
 const LS_CUSTOM_MODEL = STORAGE_PREFIX + "seedream_custom_model";
 const LS_REMEMBER_KEY = STORAGE_PREFIX + "remember_key";
 const LS_HISTORY_AUTOSAVE = STORAGE_PREFIX + "seedream_history_autosave";
+const LS_MAIN_CLEARED = STORAGE_PREFIX + "main_image_cleared";
 
 // 附加参考图上限：主图之外最多再传 3 张（材质样板 / 涂装 / 场景）
 const MAX_EXTRA_REFS = 3;
@@ -1194,10 +1195,12 @@ async function addMainImageToGallery(file) {
 }
 
 // 刷新后自动恢复最近一张主图（图库队首即最近使用）：与渲染历史同口径，
-// 工作区不因刷新清零。用户在恢复完成前已自行上传的话，让位不打扰。
+// 工作区不因刷新清零。用户在恢复完成前已自行上传的话，让位不打扰；
+// 刚点过「移除」的同样让位，避免清掉的图刷新后又回来（标记由下次上传解除）。
 // 恢复走 acceptFile 会再次入库，服务端按内容 hash 去重，只刷新 MRU 顺序。
 async function restoreLastMainImage() {
   if (state.imageFile || galleryEntries.length === 0) return;
+  if (readLs(LS_MAIN_CLEARED)) return;
   const latest = galleryEntries[0];
   try {
     const blob = await api.getRefImage("gallery", latest.id, "full");
@@ -1571,6 +1574,8 @@ function acceptFile(file, notice = "") {
     state.imageNaturalHeight = preview.naturalHeight;
     preview.hidden = false;
     $("#dropzoneEmpty").hidden = true;
+    $("#dropzoneActions").hidden = false;
+    writeLs(LS_MAIN_CLEARED, ""); // 新上传即解除「手动清空」标记，刷新恢复恢复正常
     setInputMessage(notice);
     updateRenderButton();
     updateTelemetry();
@@ -1582,6 +1587,7 @@ function acceptFile(file, notice = "") {
     state.imageFile = null;
     preview.hidden = true;
     $("#dropzoneEmpty").hidden = false;
+    $("#dropzoneActions").hidden = true;
     setInputMessage("图片无法解码，请改用有效的 PNG、JPG 或 WebP 文件");
     updateRenderButton();
     updateTelemetry();
@@ -1589,6 +1595,27 @@ function acceptFile(file, notice = "") {
 
   preview.src = state.imageObjectUrl;
   return true;
+}
+
+// 移除当前主图：上传区回到空态，并记「手动清空」标记——刷新恢复据此让路，
+// 图库队首不再被塞回来，下次上传自动解除。只清工作区，图库条目不受影响。
+function clearMainImage() {
+  if (state.imageObjectUrl) {
+    URL.revokeObjectURL(state.imageObjectUrl);
+    state.imageObjectUrl = "";
+  }
+  state.imageFile = null;
+  state.imageNaturalWidth = 0;
+  state.imageNaturalHeight = 0;
+  const preview = $("#previewImage");
+  preview.removeAttribute("src");
+  preview.hidden = true;
+  $("#dropzoneEmpty").hidden = false;
+  $("#dropzoneActions").hidden = true;
+  writeLs(LS_MAIN_CLEARED, "1");
+  setInputMessage("已移除模型图；可重新上传，或从「最近使用」点选调入");
+  updateRenderButton();
+  updateTelemetry();
 }
 
 // R1 迭代闭环：当前渲染结果一键送回输入区当新主图（换场景 / 换光照再渲），
@@ -1614,10 +1641,18 @@ function bindDropzone() {
   });
 
   dropzone.addEventListener("keydown", (event) => {
+    if (event.target !== dropzone) return; // 焦点在更换/移除按钮上时交给按钮原生行为
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       input.click();
     }
+  });
+
+  // 图片在框内时的常驻操作条：阻断冒泡，不让点击落到「整框点击选择」上
+  $("#dropzoneActions").addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (event.target.id === "replaceImage") input.click();
+    if (event.target.id === "removeImage") clearMainImage();
   });
 
   ["dragenter", "dragover"].forEach((type) => {

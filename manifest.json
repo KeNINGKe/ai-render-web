@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T07:00:24.495Z",
+  "generatedAt": "2026-10-30T07:32:41.284Z",
   "sourceCommit": null,
   "preview": false,
   "entry": "index.html",
@@ -15,8 +15,8 @@
     },
     {
       "path": "app-core.js",
-      "bytes": 67880,
-      "sha256": "27bfccc7ddd6fdda8bd1be9f99c9522bb07ad7a0de9c59c5ab83b98a449a4cbc"
+      "bytes": 69554,
+      "sha256": "4046910327de85944849826a0d882f9ef73cadd55981f079d9b93c6d27d9b476"
     },
     {
       "path": "browser-render-store.js",
@@ -30,8 +30,8 @@
     },
     {
       "path": "index.html",
-      "bytes": 16715,
-      "sha256": "9b384e2a0649f4981f7edd795a8a2596b3571568dc6c06af4f3d60fc4da101f9"
+      "bytes": 17029,
+      "sha256": "a7ce796ff4654983f5a4a8d3c7dc1045923cebd1e1ac3ac0daed097d9c73158a"
     },
     {
       "path": "mask-tools.js",
@@ -80,8 +80,8 @@
     },
     {
       "path": "styles.css",
-      "bytes": 39152,
-      "sha256": "35dcc31ac226d7b38e009d28e5b4dd5ad170588951e0db75b553ebb77233fbae"
+      "bytes": 39882,
+      "sha256": "4b24fb01b17593e7c98db2835b2bddd2ed5d3c36d58576a750f3988700a48241"
     }
   ]
 }
