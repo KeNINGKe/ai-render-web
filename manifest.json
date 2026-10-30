@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-10-30T06:40:11.815Z",
+  "sourceCommit": null,
+  "preview": false,
+  "entry": "index.html",
+  "runtime": {
+    "mode": "direct",
+    "dailyLimit": 50
+  },
+  "files": [
+    {
+      "path": ".nojekyll",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "app-core.js",
+      "bytes": 67880,
+      "sha256": "27bfccc7ddd6fdda8bd1be9f99c9522bb07ad7a0de9c59c5ab83b98a449a4cbc"
+    },
+    {
+      "path": "browser-render-store.js",
+      "bytes": 24451,
+      "sha256": "244ddb76dcc0ba5c7b99064ac74650b9295a7758c8ba4182fd764c49ba34b48b"
+    },
+    {
+      "path": "direct-renderer-api.js",
+      "bytes": 11988,
+      "sha256": "37129a9ba5182481840c69490f430c4e0dc006a1289f91fbe89bbc55af59da1b"
+    },
+    {
+      "path": "index.html",
+      "bytes": 16715,
+      "sha256": "9b384e2a0649f4981f7edd795a8a2596b3571568dc6c06af4f3d60fc4da101f9"
+    },
+    {
+      "path": "mask-tools.js",
+      "bytes": 5244,
+      "sha256": "90fdcdcb72f2a1cca574e1645502d90fec0400f0731ce538370da677c32b5c58"
+    },
+    {
+      "path": "preset-config.js",
+      "bytes": 2163,
+      "sha256": "4cb452edc7f6ec7b3cb2b29a78b58e27c2acc6cb0dad1811334297b9998c1431"
+    },
+    {
+      "path": "render-utils.js",
+      "bytes": 3705,
+      "sha256": "6e1a26d232555faafa0647bf5ddb77f8931b68d5ca99c8664ef0a1a9585685e8"
+    },
+    {
+      "path": "renderer-api.js",
+      "bytes": 559,
+      "sha256": "1a621754a2634dd4651f072235d60462927bf6797738794670aeeca9f03287d6"
+    },
+    {
+      "path": "runtime-config.js",
+      "bytes": 517,
+      "sha256": "8efe1afad4033ce9fe4803ceeaa7d13c85d8aa5cf94117a6bc48c37a11f15518"
+    },
+    {
+      "path": "seedream-models.js",
+      "bytes": 1381,
+      "sha256": "e937e417fef6e79e5fa781fd0c2adf8ed4bba15e65734f780b2d0d1f953dba39"
+    },
+    {
+      "path": "seedream-prompts.js",
+      "bytes": 3171,
+      "sha256": "317deacdd34cfced459b7be8ef759d6f9804d80c867918d06933e2b62dcf5406"
+    },
+    {
+      "path": "server-renderer-api.js",
+      "bytes": 3034,
+      "sha256": "5e70a36a803ce5f0e04ee5da4ca031e3229eea58df2daa230e15446aeb06083f"
+    },
+    {
+      "path": "static-access.js",
+      "bytes": 2211,
+      "sha256": "3842fd216e6395dc2569747582737c19aa351232e489110a20f5ba2a5691a317"
+    },
+    {
+      "path": "styles.css",
+      "bytes": 39152,
+      "sha256": "35dcc31ac226d7b38e009d28e5b4dd5ad170588951e0db75b553ebb77233fbae"
+    }
+  ]
+}

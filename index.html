@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>能源装备渲染台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  <style>body[data-gate="locked"] .console{display:none}</style>
+  </head>
+  <body data-gate="locked">
+    <section class="access-gate" id="accessGate" aria-labelledby="accessTitle">
+      <form class="access-card" id="accessForm">
+        <p class="access-label">能源装备渲染台 · 协作入口</p>
+        <h1 id="accessTitle">输入访问口令</h1>
+        <p>进入后使用自己的火山方舟 API Key，渲染费用由 Key 所属账号承担。</p>
+        <label for="accessPassword">访问口令</label>
+        <input id="accessPassword" type="password" autocomplete="off" required />
+        <button id="accessSubmit" class="save-button" type="submit">进入渲染台</button>
+        <p id="accessMessage" role="status" aria-live="polite"></p>
+        <small>此入口用于减少随手访问。图片与提示词将发送至火山云端，请使用可上传的素材。</small>
+      </form>
+    </section>
+    <div class="console" id="workspace">
+      <header class="console-header">
+        <div class="brand-text">
+          <h1>能源装备工业设计渲染引擎</h1>
+          <p class="brand-tagline">Industrial AI Render Console</p>
+        </div>
+        <div class="header-actions">
+          <div class="status">
+            <span class="status-dot" id="statusDot"></span>
+            <span class="status-text" id="statusText">检测中…</span>
+          </div>
+          <div class="user-badge" id="userBadge" hidden>
+            <span class="user-name" id="userName"></span>
+            <button type="button" class="logout-button" id="logoutButton"
+              aria-label="退出登录">退出</button>
+          </div>
+          <button
+            class="settings-button"
+            id="settingsButton"
+            type="button"
+            aria-label="设置 API Key 与模型"
+            aria-expanded="false"
+          >
+            <svg class="settings-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="settings-panel" id="settingsPanel" hidden aria-label="渲染服务设置">
+        <div class="settings-head">
+          <h2>渲染服务设置</h2>
+          <span id="settingsHint">留空则使用项目 .env 的默认配置</span>
+        </div>
+        <div class="settings-grid">
+          <div class="settings-field">
+            <label for="apiKeyInput">API Key</label>
+            <div class="key-row">
+              <input id="apiKeyInput" type="password" autocomplete="off" spellcheck="false" placeholder="填入后优先使用，留空用 .env" />
+              <button type="button" class="key-toggle" id="keyToggle" aria-pressed="false">显示</button>
+            </div>
+          </div>
+          <div class="settings-field">
+            <label for="modelSelect">模型</label>
+            <select id="modelSelect"></select>
+            <p class="settings-note">预设模型开箱即用，下拉选择后默认生效。</p>
+          </div>
+          <div class="settings-field">
+            <label for="customModelInput">自定义模型 ID（可选，填了覆盖下拉）</label>
+            <input id="customModelInput" type="text" autocomplete="off" spellcheck="false" placeholder="如 ep-xxxx 或其他模型 ID" />
+            <p class="settings-note">任意兼容的模型 ID / 推理接入点可填这里，直接透传给后端。</p>
+          </div>
+        </div>
+        <label class="remember-key" id="rememberKeyRow" hidden>
+          <input type="checkbox" id="rememberKey" /> 在此浏览器记住 Key
+          <span>默认仅本次页面使用；记住后，同一网站域名下的其他页面代码也可能读取。</span>
+        </label>
+        <div class="settings-actions">
+          <button type="button" class="save-button" id="saveSettings">保存</button>
+          <button type="button" class="clear-button" id="clearSettings">清除</button>
+          <span class="settings-message" id="settingsMessage"></span>
+        </div>
+      </section>
+
+      <main class="console-grid">
+        <section class="col input-col" aria-label="渲染输入">
+          <div class="step">
+            <div class="step-head">
+              <span class="step-num">1</span>
+              <h2>输入模型图</h2>
+            </div>
+            <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="上传模型图">
+              <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+              <img id="previewImage" alt="模型图预览" hidden />
+              <div class="dropzone-empty" id="dropzoneEmpty">
+                <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 16V4m0 0L7 9m5-5 5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                </svg>
+                <p id="dropzoneText">拖入 CAD 白模 / 模型截图 / 产品图，或点击选择</p>
+                <span class="dropzone-hint">PNG · JPG · WebP · ≤ 50 MB</span>
+              </div>
+            </div>
+            <p class="input-message" id="inputMessage" hidden></p>
+
+            <div class="ref-gallery" id="galleryStrip" hidden>
+              <p class="ref-gallery-title">最近使用<span>点击调入为主图 · 本机自动保留 8 张</span></p>
+              <div class="ref-gallery-list" id="galleryList"></div>
+            </div>
+
+            <div class="extra-refs">
+              <p class="extra-refs-title">附加参考图<span>材质 / 涂装 / 场景气质 · 可选 · 最多 3 张</span></p>
+              <div class="extra-ref-dropzone" id="extraRefDropzone" tabindex="0" role="button" aria-label="添加附加参考图">
+                <input id="extraRefsInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden />
+                <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 16V4m0 0L7 9m5-5 5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                </svg>
+                <p>拖入材质 / 涂装 / 场景参考图，或点击选择</p>
+                <span class="dropzone-hint">PNG · JPG · WebP · ≤ 50 MB · 最多 3 张</span>
+              </div>
+              <div class="extra-refs-list" id="extraRefsList" hidden></div>
+              <div class="extra-refs-footer">
+                <p class="extra-refs-note">第一张主图是几何权威；附加图只作材质、涂装或场景气质参考，不改变轮廓结构。</p>
+                <button type="button" class="extra-refs-clear" id="extraRefsClear" hidden>全部移除</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-head">
+              <span class="step-num">2</span>
+              <h2>提示词</h2>
+            </div>
+            <textarea
+              id="prompt"
+              rows="4"
+              spellcheck="false"
+              placeholder="补充你想要的材质、光照或出图风格；留空会使用默认提示词。"
+            ></textarea>
+            <p class="field-hint">结构比例由系统自动锁定；直接描述想要的材质、光照或场景即可。</p>
+            <button type="button" class="avoid-toggle" id="avoidToggle" aria-expanded="false"
+              aria-label="展开或收起避免出现的内容">
+              避免出现（负面描述，可选）
+            </button>
+            <div id="avoidPanel" hidden>
+              <textarea
+                id="avoidPrompt"
+                rows="2"
+                spellcheck="false"
+                placeholder="不希望出现的元素，用顿号分隔。如：人物、车辆、水印花纹、多余的天线、文字标签……"
+              ></textarea>
+              <p class="field-hint">Seedream 没有独立负向词通道；这里的内容会转成「严格回避」指令并入正向提示词。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="col output-col" aria-label="渲染与结果">
+          <div class="step">
+            <div class="step-head">
+              <span class="step-num">3</span>
+              <h2>渲染</h2>
+            </div>
+            <div class="quality" id="quality" role="radiogroup" aria-label="输出档位"></div>
+            <div class="telemetry" id="telemetry">上传模型图后，按原图比例自动计算输出尺寸</div>
+            <div class="render-row">
+              <button id="renderButton" class="render-button" type="button" disabled>
+                <span class="render-arrow" aria-hidden="true">▶</span>
+                <span id="renderLabel">请先上传模型图</span>
+              </button>
+              <button id="queueAddButton" class="queue-add-button" type="button" disabled
+                aria-label="把当前提示词与档位加入批量队列">＋ 加入队列</button>
+            </div>
+            <div class="queue-strip" id="queueStrip" hidden>
+              <p class="queue-title">多变体队列 · 同一张模型图串行出多套方案</p>
+              <div class="queue-items" id="queueItems"></div>
+              <div class="queue-actions">
+                <button id="queueRunButton" class="queue-run-button" type="button" disabled>渲染队列</button>
+                <button id="queueClearButton" class="queue-clear-button" type="button" disabled>清空</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="result-block">
+            <div class="output-head">
+              <h2>渲染结果</h2>
+              <span class="job-state" id="jobState">待命</span>
+            </div>
+            <div class="result" id="resultArea">
+              <div class="empty-state">
+                <span class="empty-glyph" aria-hidden="true">◫</span>
+                <p>结果会显示在这里</p>
+                <span>上传模型图，写好提示词，点「开始渲染」；或直接对上传图做局部重绘。</span>
+              </div>
+            </div>
+            <div class="compare-bar" id="compareBar" hidden role="radiogroup" aria-label="结果对比模式">
+              <button type="button" data-mode="single" aria-checked="true">单图</button>
+              <button type="button" data-mode="slider" aria-checked="false">滑块对比</button>
+              <button type="button" data-mode="side" aria-checked="false">并排对比</button>
+            </div>
+            <div class="result-actions">
+              <button id="downloadButton" class="download-button" type="button" hidden>下载图片</button>
+              <button id="useAsMainButton" class="download-button use-as-main-button" type="button" hidden
+                aria-label="把渲染结果设为新的主图，继续调整后再次渲染">设为主图</button>
+              <button id="inpaintButton" class="inpaint-button" type="button"
+                aria-label="进入局部重绘模式">🖌 局部重绘</button>
+            </div>
+
+            <div class="inpaint-panel" id="inpaintPanel" hidden aria-label="局部重绘">
+              <div class="inpaint-toolbar">
+                <label class="inpaint-brush-label">笔刷
+                  <input type="range" id="inpaintBrush" min="4" max="120" value="28" />
+                </label>
+                <div class="inpaint-zoom" role="group" aria-label="底图缩放">
+                  <button type="button" class="inpaint-tool" id="inpaintZoomOut" aria-label="缩小底图">−</button>
+                  <button type="button" class="inpaint-zoom-label" id="inpaintZoomReset" title="恢复适应窗口大小">适应</button>
+                  <button type="button" class="inpaint-tool" id="inpaintZoomIn" aria-label="放大底图">＋</button>
+                </div>
+                <button type="button" class="inpaint-tool" id="inpaintUndo">撤销</button>
+                <button type="button" class="inpaint-tool" id="inpaintClear">清空</button>
+                <button type="button" class="inpaint-tool" id="inpaintImport">导入蒙版</button>
+                <input id="inpaintImportInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+              </div>
+              <div class="inpaint-stage" id="inpaintStage">
+                <div class="inpaint-canvas-wrap" id="inpaintWrap">
+                  <img id="inpaintBaseImage" alt="局部重绘底图" draggable="false" />
+                  <canvas id="inpaintCanvas"></canvas>
+                </div>
+              </div>
+              <p class="field-hint">在图上涂抹要重做的区域（红色半透明），可放大后细涂（Ctrl + 滚轮或工具栏缩放）；
+                也可以导入黑白蒙版图（白色 = 重绘区，可用 Krita / PS 绘制导出，尺寸需与底图一致）。
+                未涂抹区域保证像素不变。</p>
+              <textarea
+                id="inpaintInstruction"
+                rows="2"
+                spellcheck="false"
+                placeholder="描述这块区域要改成什么。如：换成海工灰耐候涂层、只改这扇门的颜色、去掉这根天线……"
+              ></textarea>
+              <div class="inpaint-actions">
+                <button id="inpaintRunButton" class="inpaint-run-button" type="button">开始局部重绘</button>
+                <button id="inpaintSaveButton" class="inpaint-save-button" type="button" hidden>合成结果存入历史</button>
+                <button id="inpaintExitButton" class="inpaint-exit-button" type="button">返回普通视图</button>
+                <span class="inpaint-state" id="inpaintState"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="history-block">
+            <button class="history-toggle" id="historyToggle" type="button" aria-expanded="false"
+              aria-label="展开或收起渲染历史">
+              <span>渲染历史</span>
+              <span class="history-count" id="historyCount"></span>
+              <span class="history-chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div class="history-panel" id="historyPanel" hidden>
+              <div class="history-toolbar">
+                <label class="history-autosave">
+                  <input type="checkbox" id="historyAutosave" checked />
+                  <span id="historyStorageLabel">自动保存到本机 data/renders</span>
+                </label>
+                <button type="button" class="history-refresh" id="historyRefresh">刷新</button>
+              </div>
+              <div class="history-list" id="historyList">
+                <p class="history-empty">展开后自动加载最近的渲染记录。</p>
+              </div>
+              <p class="history-message" id="historyMessage" hidden></p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="lightbox" id="lightbox" aria-hidden="true">
+      <button class="lightbox-close" id="lightboxClose" type="button" aria-label="关闭预览">×</button>
+      <img id="lightboxImage" alt="渲染结果放大预览" />
+    </div>
+
+    <script type="module" src="./app-core.js"></script>
+  </body>
+</html>
