@@ -4,10 +4,10 @@ export const RUNTIME_CONFIG = {
   "mode": "direct",
   "dailyLimit": 50,
   "gate": {
-    "salt": "RwuyPEln0ZefJVJd216dRA==",
-    "digest": "CGDNNTEmwhJaWGo3PxmOO6rxSweSGjT4NThaSo4WtT8=",
+    "salt": "FsN8p8uEp7efhhlwlpdbMQ==",
+    "digest": "1yuI38ALTrCLXzfY7rEFsldtHoS7tAyqLOKDgUx0dlA=",
     "iterations": 210000,
-    "version": "15eda1a514147c7f"
+    "version": "8f0305623cb5e5c3"
   },
   "preview": false
 };
