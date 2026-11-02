@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T01:45:13.843Z",
+  "generatedAt": "2026-11-02T06:33:33.897Z",
   "sourceCommit": null,
   "preview": false,
   "entry": "index.html",
@@ -14,9 +14,24 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "path": "admin.css",
+      "bytes": 6691,
+      "sha256": "f0d36fbdc037f9d7c9449ed21578cd4aa17cedd77ec3d773e82a6d3e902ad695"
+    },
+    {
+      "path": "admin.html",
+      "bytes": 3576,
+      "sha256": "f0a4b4a20ac38cf5e95083ebd59ad95de63ad8e18bea0284f85ed39302100c89"
+    },
+    {
+      "path": "admin.js",
+      "bytes": 13943,
+      "sha256": "6e9f1c1eec056162bfd27dc89a86b9b1467aeb2800f97c418e9e42d1e2120e5a"
+    },
+    {
       "path": "app-core.js",
-      "bytes": 69833,
-      "sha256": "2642b0ab1ceea3f2e3b9488af54ec73a8906329fcc2c3ebfe2c9588dbc4f2fb2"
+      "bytes": 71656,
+      "sha256": "509734fbf790655b05f8810b019166633f38079c59b800663098d0b26a1b244c"
     },
     {
       "path": "browser-render-store.js",
@@ -24,14 +39,24 @@
       "sha256": "244ddb76dcc0ba5c7b99064ac74650b9295a7758c8ba4182fd764c49ba34b48b"
     },
     {
+      "path": "cloud-account.js",
+      "bytes": 2571,
+      "sha256": "4582b4862adcdbd6b41829fe903b1f55a8d3859c13fd9ff460c33142e3a51b4e"
+    },
+    {
+      "path": "cloud-archive.js",
+      "bytes": 18002,
+      "sha256": "f53f0c4aa503c5fbe8a09580983309c3fb057f6f7722fdcacb37f23073a1e956"
+    },
+    {
       "path": "direct-renderer-api.js",
-      "bytes": 11988,
-      "sha256": "37129a9ba5182481840c69490f430c4e0dc006a1289f91fbe89bbc55af59da1b"
+      "bytes": 13855,
+      "sha256": "480b6145ace43e0b2eb5060990735d09e1715124e09e9de55b354e0559a06636"
     },
     {
       "path": "index.html",
-      "bytes": 16894,
-      "sha256": "1b0786b54075ec5982c37a2d244a6e568457bd4bb0ce355091535386e645021f"
+      "bytes": 18151,
+      "sha256": "7250d9ea70c6d532fb7cc4567f392578ef7603ec94a4b4868fc9415a28354d53"
     },
     {
       "path": "mask-tools.js",
@@ -55,8 +80,8 @@
     },
     {
       "path": "runtime-config.js",
-      "bytes": 517,
-      "sha256": "2bf6040a1a0aaacff74620b49541ebb920de110c56060d17bb31d4b55b8582d5"
+      "bytes": 668,
+      "sha256": "c884bf5aeea448fe37ebc992b5740a3c7cc14cd1f1d19e981a5688534ccd22a2"
     },
     {
       "path": "seedream-models.js",
@@ -105,8 +130,8 @@
     },
     {
       "path": "styles.css",
-      "bytes": 40307,
-      "sha256": "fdaa6cdceb90a50761dd9379864b958ec2607c17f130eec0143385fd5888703b"
+      "bytes": 41257,
+      "sha256": "d989447b791d8c182e4f4d0460d116da440f7ceb5115851ec749e668bcd04c19"
     }
   ]
 }

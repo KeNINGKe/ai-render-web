@@ -7,13 +7,16 @@ import { createMaskController } from "./mask-tools.js";
 import { RUNTIME_CONFIG } from "./runtime-config.js";
 import { createRendererApi } from "./renderer-api.js";
 import { unlockStaticPage } from "./static-access.js";
+import { createCloudArchive } from "./cloud-archive.js";
+import { initCloudAccount } from "./cloud-account.js";
 
 const DIRECT_MODE = RUNTIME_CONFIG.mode === "direct";
 if (DIRECT_MODE) {
   document.querySelector("#workspace").hidden = true;
   await unlockStaticPage(RUNTIME_CONFIG);
 }
-const api = await createRendererApi(RUNTIME_CONFIG);
+const cloudArchive = createCloudArchive(DIRECT_MODE ? RUNTIME_CONFIG.cloudArchive : undefined);
+const api = await createRendererApi(RUNTIME_CONFIG, { cloudArchive, makeResultThumbnail: makeThumbnail });
 const STORAGE_PREFIX = DIRECT_MODE ? "ai_render_web_" : "";
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 const RENDER_TIMEOUT_MS = 5 * 60 * 1000;
@@ -844,7 +847,10 @@ function historyCard(entry) {
     ["查看大图", () => void viewHistoryEntry(entry)],
     ["下载", () => void downloadHistoryEntry(entry)],
     ["复制提示词", (button) => void copyHistoryPrompt(entry, button)],
-    ...(entry.shared ? [["设为主图", () => void useHistoryAsMain(entry)]] : [["删除", () => void removeHistoryEntry(entry)]])
+    ...(entry.shared ? [["设为主图", () => void useHistoryAsMain(entry)]] : [
+      ...(cloudArchive.enabled ? [["同步后台", (button) => void syncHistoryEntry(entry, button)]] : []),
+      ["删除", () => void removeHistoryEntry(entry)]
+    ])
   ].forEach(([label, handler]) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -938,6 +944,44 @@ async function copyHistoryPrompt(entry, button) {
   } catch {
     showHistoryMessage("复制失败：浏览器未授权剪贴板，可从「查看大图」所在条目手动复制", true);
   }
+}
+
+async function syncHistoryEntry(entry, button) {
+  if (entry.shared) return;
+  if (button) { button.disabled = true; button.textContent = "同步中…"; }
+  try {
+    const image = await api.getHistoryImage(entry.id, "result");
+    const imageDataUrl = await readFileAsDataUrl(image);
+    const thumbnail = await makeThumbnail(imageDataUrl);
+    await cloudArchive.saveRender({
+      localId: entry.id, createdAt: entry.createdAt,
+      imageDataUrl,
+      ...(thumbnail ? { thumbnail } : {}),
+      prompt: entry.prompt, model: entry.model, size: entry.size, referenceCount: entry.referenceCount || 1
+    });
+    if (button) button.textContent = "已同步";
+    return true;
+  } catch (error) {
+    if (button) { button.textContent = "重试同步"; showHistoryMessage(error.message, true); }
+    else throw error;
+    return false;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function syncLocalHistory(progress) {
+  await cloudArchive.requireUser();
+  const data = await api.listHistory();
+  const entries = (data.entries || []).filter((entry) => !entry.shared);
+  let saved = 0;
+  let failed = 0;
+  for (const entry of entries) {
+    try { await syncHistoryEntry(entry); saved++; }
+    catch { failed++; }
+    progress(saved + failed, entries.length);
+  }
+  return { saved, failed };
 }
 
 async function removeHistoryEntry(entry) {
@@ -1515,7 +1559,7 @@ async function saveInpaintComposite() {
       ...(thumbnail ? { thumbnail } : {})
     });
     if (!data?.ok) throw new Error(data?.message || "保存失败");
-    setInpaintState(`已存入历史：${data.id}`);
+    setInpaintState(`已存入历史：${data.id}${data.warning ? `；${data.warning}` : ""}`);
     refreshHistoryIfOpen();
   } catch (error) {
     setInpaintState(error.message, true);
@@ -1855,6 +1899,7 @@ initAvoid();
 initInpaint();
 initHistory();
 initCompare();
+void initCloudAccount({ archive: cloudArchive, syncHistory: syncLocalHistory });
 if (!DIRECT_MODE) void initAuth(); // 登录探测：拿身份显示徽标 + 角色感知文案；未登录兜底跳登录页
 $("#logoutButton").addEventListener("click", () => void logout());
 // 启动恢复：主图取图库队首（须先 loadGallery 拿到列表），附加参考图并行恢复

@@ -9,5 +9,9 @@ export const RUNTIME_CONFIG = {
     "iterations": 210000,
     "version": "8f0305623cb5e5c3"
   },
-  "preview": false
+  "preview": false,
+  "cloudArchive": {
+    "url": "https://baxqjjdmhsrkibrsgpvv.supabase.co",
+    "publishableKey": "sb_publishable_cN8JekthKQa9_Udd7Ktdgw_73BTXIPe"
+  }
 };

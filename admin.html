@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>渲染管理</title>
+  <link rel="stylesheet" href="./admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <header class="admin-header">
+      <div><p class="eyebrow">ARCHIVE / CONTROL ROOM</p><h1>渲染管理<span class="title-mark">云端档案</span></h1><p class="subtitle">查看团队的渲染结果与完整生成记录</p></div>
+      <nav aria-label="管理操作"><a href="./index.html">返回渲染台</a><button id="refresh" hidden>刷新</button><button id="signOut" hidden>退出登录</button></nav>
+    </header>
+    <section id="authPanel" class="auth-panel" aria-labelledby="authTitle">
+      <p class="eyebrow">IDENTITY / ACCESS</p><h2 id="authTitle">正在检查云服务</h2>
+      <p id="authDescription">正在确认当前账号与访问权限…</p>
+      <form id="loginForm" hidden autocomplete="off">
+        <label for="email">邮箱</label><input id="email" type="email" required autocomplete="username" placeholder="请输入账号邮箱">
+        <label for="password">密码</label><input id="password" type="password" required autocomplete="off">
+        <button id="loginSubmit" class="primary" type="submit">登录管理页</button>
+        <p class="fine">仅数据库授权的管理员可访问团队档案。密码不会由此页面保存。</p>
+      </form>
+    </section>
+    <p id="message" class="message" role="status" aria-live="polite"></p>
+    <section id="management" hidden aria-label="团队渲染档案">
+      <form id="filters" class="filters">
+        <label class="search-field">提示词关键词<input id="search" type="search" placeholder="搜索完整提示词"></label>
+        <label>人员 UUID / 当前页人员<input id="owner" list="ownerOptions" placeholder="全部人员"><datalist id="ownerOptions"></datalist></label>
+        <label>开始日期<input id="from" type="date"></label><label>结束日期<input id="to" type="date"></label>
+        <div class="filter-actions"><button class="primary" type="submit">查询</button><button id="reset" type="button">重置</button></div>
+      </form>
+      <div class="list-heading"><h2>渲染记录</h2><p id="count">正在加载…</p></div>
+      <p id="listState" class="list-state" role="status"></p>
+      <div id="renderList" class="render-list" aria-busy="false"></div>
+      <footer class="pagination"><span id="pageInfo"></span><div><button id="previous" disabled>上一页</button><button id="next" disabled>下一页</button></div></footer>
+    </section>
+  </main>
+  <dialog id="detailDialog" aria-labelledby="detailTitle">
+    <header class="detail-header"><div><p class="eyebrow">RENDER / INSPECT</p><h2 id="detailTitle">渲染详情</h2></div><button id="closeDetail" aria-label="关闭详情">关闭</button></header>
+    <div class="detail-body"><div class="original-frame"><img id="detailImage" alt="渲染原图" hidden><p id="imageState">正在读取原图…</p></div><div class="detail-info"><h3>生成信息</h3><dl id="metadata"></dl><div class="prompt-heading"><h3>完整提示词</h3><button id="copyPrompt">复制提示词</button></div><pre id="detailPrompt"></pre><p id="detailMessage" role="status" aria-live="polite"></p><div class="detail-actions"><button id="download" class="primary" disabled>下载原图</button><button id="deleteRender" class="danger">删除记录</button></div></div></div>
+  </dialog>
+  <script type="module" src="./admin.js"></script>
+</body>
+</html>

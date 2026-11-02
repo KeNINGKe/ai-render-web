@@ -1,4 +1,5 @@
 import { createBrowserRenderStore } from "./browser-render-store.js";
+import { createCloudArchive } from "./cloud-archive.js";
 import { DEFAULT_SEEDREAM_MODEL, SEEDREAM_MODELS, isKnownSeedreamModel } from "./seedream-models.js";
 
 const ARK_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3/images/generations";
@@ -84,6 +85,7 @@ function requestLifetime(signal, timeoutMs) {
 
 export function createDirectRendererApi(config = {}, deps = {}) {
   const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
+  const archive = deps.cloudArchive ?? createCloudArchive(config.cloudArchive, { fetchImpl });
   const now = deps.now ?? (() => new Date());
   const dailyLimit = config.dailyLimit ?? 50;
   if (!Number.isSafeInteger(dailyLimit) || dailyLimit < 1) throw apiError("每日次数配置无效", 400);
@@ -132,9 +134,22 @@ export function createDirectRendererApi(config = {}, deps = {}) {
     catch { return { ok: true, enabled: false, entries: [], warning: STORAGE_WARNING }; }
   }
 
+  // 云归档无需同事注册账号：无会话时静默创建游客身份，管理员在后台可见全部记录。
+  async function ensureArchiveUser() {
+    if (await archive.getUser()) return;
+    if (!archive.signInAnonymously) {
+      throw apiError("请先登录团队账号", 401);
+    }
+    await archive.signInAnonymously();
+  }
+
   async function render(payload, { signal } = {}) {
     const { apiKey, prompt, size, refs, model } = validatePayload(payload);
     signal?.throwIfAborted();
+    if (archive.enabled) {
+      try { await ensureArchiveUser(); }
+      catch (error) { throw Object.assign(error, { pauseQueue: true }); }
+    }
     const warning = await reserve();
     signal?.throwIfAborted();
     const lifetime = requestLifetime(signal, timeoutMs);
@@ -221,7 +236,39 @@ export function createDirectRendererApi(config = {}, deps = {}) {
         data.warning = [warning, "渲染已完成，但历史保存失败；请立即下载结果，或删除旧历史释放空间。"].filter(Boolean).join(" ");
       }
     }
+    if (archive.enabled) {
+      try {
+        let thumbnail;
+        try { thumbnail = await deps.makeResultThumbnail?.(imageDataUrl); } catch { /* 原图仍可归档 */ }
+        const saved = await archive.saveRender({
+          imageDataUrl, prompt, model, size, referenceCount: refs.length,
+          localId: data.historyId || globalThis.crypto.randomUUID(),
+          ...(thumbnail ? { thumbnail } : {})
+        });
+        data.cloudHistoryId = saved.id;
+      } catch {
+        data.warning = [data.warning, "渲染已完成，但同步管理后台失败。请先下载结果；已保存的本机历史可点击「同步后台」重试，不要重新渲染。"].filter(Boolean).join(" ");
+      }
+    }
     return data;
+  }
+
+  async function saveComposite(payload) {
+    if (archive.enabled) {
+      try { await ensureArchiveUser(); }
+      catch (error) { throw Object.assign(error, { pauseQueue: true }); }
+    }
+    const metadata = {
+      imageDataUrl: payload.imageDataUrl, prompt: payload.prompt, model: payload.model, size: payload.size,
+      ...(typeof payload.thumbnail === "string" ? { thumbnail: payload.thumbnail } : {}),
+      username: "", keySource: ""
+    };
+    const saved = await storeCall("saveHistory", metadata);
+    if (archive.enabled) {
+      try { await archive.saveRender({ ...metadata, localId: saved.id, referenceCount: 1 }); }
+      catch { saved.warning = "合成结果已保存在本机，但同步管理后台失败，可从历史中重试同步。"; }
+    }
+    return saved;
   }
 
   return {
@@ -232,11 +279,7 @@ export function createDirectRendererApi(config = {}, deps = {}) {
     listHistory: () => list("listHistory"),
     getHistoryImage: (id, kind = "result") => storeCall("getHistoryImage", id, kind),
     deleteHistory: (id) => storeCall("deleteHistory", id),
-    saveComposite: (payload) => storeCall("saveHistory", {
-      imageDataUrl: payload.imageDataUrl, prompt: payload.prompt, model: payload.model, size: payload.size,
-      ...(typeof payload.thumbnail === "string" ? { thumbnail: payload.thumbnail } : {}),
-      username: "", keySource: ""
-    }),
+    saveComposite,
     listRefs: (collection) => list("listRefs", collection),
     getRefImage: (collection, id, kind = "full") => storeCall("getRefImage", collection, id, kind),
     addRef: (collection, payload) => storeCall("addRef", collection, payload),

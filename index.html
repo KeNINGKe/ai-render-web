@@ -26,6 +26,7 @@
           <p class="brand-tagline">Industrial AI Render Console</p>
         </div>
         <div class="header-actions">
+          <a class="admin-link" id="adminLink" href="./admin.html">管理后台</a>
           <div class="status">
             <span class="status-dot" id="statusDot"></span>
             <span class="status-text" id="statusText">检测中…</span>
@@ -83,6 +84,24 @@
           <button type="button" class="clear-button" id="clearSettings">清除</button>
           <span class="settings-message" id="settingsMessage"></span>
         </div>
+      </section>
+
+      <section class="cloud-account" id="cloudAccount" hidden aria-labelledby="cloudAccountTitle">
+        <div class="cloud-account-heading">
+          <h2 id="cloudAccountTitle">团队记录</h2>
+          <p>登录后，生成的结果和提示词会同步到团队后台，管理员可以查看。火山方舟 API Key 不参与同步。</p>
+        </div>
+        <form id="cloudLoginForm" class="cloud-login-form">
+          <label>团队邮箱<input id="cloudEmail" type="email" autocomplete="username" required /></label>
+          <label>登录密码<input id="cloudPassword" type="password" autocomplete="current-password" required /></label>
+          <button class="save-button" type="submit">登录团队账号</button>
+        </form>
+        <div id="cloudAccountUser" class="cloud-account-user" hidden>
+          <span id="cloudAccountName"></span>
+          <button id="cloudSyncHistory" type="button" class="clear-button">同步本机历史</button>
+          <button id="cloudSignOut" type="button" class="clear-button">退出团队账号</button>
+        </div>
+        <p id="cloudAccountMessage" role="status" aria-live="polite"></p>
       </section>
 
       <main class="console-grid">
