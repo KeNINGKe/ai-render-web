@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T01:32:14.717Z",
+  "generatedAt": "2026-11-02T01:45:13.843Z",
   "sourceCommit": null,
   "preview": false,
   "entry": "index.html",
@@ -15,8 +15,8 @@
     },
     {
       "path": "app-core.js",
-      "bytes": 71718,
-      "sha256": "7c8d689990b47441bdcc5b75d7ab5af54aaddb68d60b0347f2e0194658f7d781"
+      "bytes": 69833,
+      "sha256": "2642b0ab1ceea3f2e3b9488af54ec73a8906329fcc2c3ebfe2c9588dbc4f2fb2"
     },
     {
       "path": "browser-render-store.js",
@@ -65,8 +65,8 @@
     },
     {
       "path": "seedream-prompts.js",
-      "bytes": 3171,
-      "sha256": "317deacdd34cfced459b7be8ef759d6f9804d80c867918d06933e2b62dcf5406"
+      "bytes": 3122,
+      "sha256": "2b61de000ebc005fcbd0b5d9f9afcbf62a9408d10e51329262147a75fa69448c"
     },
     {
       "path": "server-renderer-api.js",
