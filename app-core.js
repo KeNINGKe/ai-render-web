@@ -571,6 +571,7 @@ async function renderOnce({
 async function currentExtraRefDataUrls() {
   const urls = [];
   for (const entry of state.extraRefs) {
+    if (entry.enabled === false) continue;
     urls.push(await processedExtraRef(entry));
   }
   return urls;
@@ -759,13 +760,18 @@ function showHistoryMessage(text, isError = false) {
   el.classList.toggle("error", Boolean(isError));
 }
 
-async function loadHistory() {
+async function loadHistory({ revealShared = false } = {}) {
   if (state.historyLoading) return;
   state.historyLoading = true;
   try {
     const data = await api.listHistory();
     state.historyEntries = data.entries || [];
     renderHistoryList();
+    if (revealShared && state.historyEntries.some((entry) => entry.shared)) {
+      $("#historyPanel").hidden = false;
+      $("#historyToggle").setAttribute("aria-expanded", "true");
+      $("#historyToggle").classList.add("open");
+    }
     showHistoryMessage(data.warning || "");
   } catch (error) {
     showHistoryMessage(error.message, true);
@@ -800,6 +806,7 @@ function renderHistoryList() {
 function historyCard(entry) {
   const card = document.createElement("div");
   card.className = "history-item";
+  if (entry.shared) card.dataset.shared = "true";
 
   const thumb = document.createElement("img");
   thumb.className = "history-thumb";
@@ -813,7 +820,7 @@ function historyCard(entry) {
 
   const title = document.createElement("p");
   title.className = "history-title";
-  title.textContent = `${formatHistoryTime(entry.createdAt)} · ${modelLabel(entry.model)} · ${entry.size}`;
+  title.textContent = `${entry.shared ? "固定示例 · " : ""}${formatHistoryTime(entry.createdAt)} · ${modelLabel(entry.model)} · ${entry.size}`;
 
   // 归属标注：渲染人 + Key 来源（认证上线前的旧记录两者皆空，不显示）。
   if (entry.username || entry.keySource) {
@@ -837,7 +844,7 @@ function historyCard(entry) {
     ["查看大图", () => void viewHistoryEntry(entry)],
     ["下载", () => void downloadHistoryEntry(entry)],
     ["复制提示词", (button) => void copyHistoryPrompt(entry, button)],
-    ["删除", () => void removeHistoryEntry(entry)]
+    ...(entry.shared ? [["设为主图", () => void useHistoryAsMain(entry)]] : [["删除", () => void removeHistoryEntry(entry)]])
   ].forEach(([label, handler]) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -847,6 +854,18 @@ function historyCard(entry) {
   });
 
   meta.append(title, promptLine, actions);
+  if (entry.shared) {
+    const details = document.createElement("details");
+    details.className = "history-details";
+    const summary = document.createElement("summary");
+    summary.textContent = "完整信息与提示词";
+    const info = document.createElement("p");
+    info.textContent = `记录：${entry.sourceId || entry.id}\n生成时间：${entry.createdAt}\n模型：${modelLabel(entry.model)}（${entry.model}）\n尺寸：${entry.size}\n参考图数量：${entry.referenceCount ?? "未记录"}`;
+    const prompt = document.createElement("p");
+    prompt.textContent = entry.prompt;
+    details.append(summary, info, prompt);
+    meta.append(details);
+  }
   card.append(thumb, meta);
   return card;
 }
@@ -862,6 +881,15 @@ async function fetchHistoryBlobUrl(id, kind) {
 async function viewHistoryEntry(entry) {
   try {
     openLightbox(await fetchHistoryBlobUrl(entry.id, "result"));
+  } catch (error) {
+    showHistoryMessage(error.message, true);
+  }
+}
+
+async function useHistoryAsMain(entry) {
+  try {
+    const blob = await api.getHistoryImage(entry.id, "result");
+    acceptFile(fileFromBlob(blob, "历史渲染图"), "已将历史渲染图设为主图，可修改提示词继续渲染");
   } catch (error) {
     showHistoryMessage(error.message, true);
   }
@@ -928,7 +956,7 @@ async function removeHistoryEntry(entry) {
 function renderExtraRefs() {
   const list = $("#extraRefsList");
   list.hidden = state.extraRefs.length === 0;
-  $("#extraRefsClear").hidden = state.extraRefs.length === 0;
+  $("#extraRefsClear").hidden = !state.extraRefs.some((entry) => !entry.shared || entry.enabled !== false);
   // 加满后收起添加区，移除一张再回来
   $("#extraRefDropzone").hidden = state.extraRefs.length >= MAX_EXTRA_REFS;
   const items = state.extraRefs.map((entry) => {
@@ -936,19 +964,35 @@ function renderExtraRefs() {
     wrap.className = "extra-ref-item";
     const img = document.createElement("img");
     img.src = entry.objectUrl;
-    img.alt = "附加参考图";
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.textContent = "×";
-    remove.setAttribute("aria-label", "移除这张参考图");
-    remove.addEventListener("click", () => {
-      URL.revokeObjectURL(entry.objectUrl);
-      // 同步删服务端文件，刷新后才不会「复活」
-      if (entry.serverId) void deleteExtraRefOnServer(entry.serverId);
-      state.extraRefs = state.extraRefs.filter((e) => e.id !== entry.id);
-      renderExtraRefs();
-    });
-    wrap.append(img, remove);
+    img.alt = entry.shared ? "固定附加参考图" : "附加参考图";
+    wrap.append(img);
+    if (entry.shared) {
+      wrap.dataset.shared = "true";
+      const label = document.createElement("label");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = entry.enabled !== false;
+      checkbox.addEventListener("change", () => {
+        entry.enabled = checkbox.checked;
+        renderExtraRefs();
+      });
+      label.append(checkbox, "使用固定图");
+      wrap.append(label);
+      img.addEventListener("click", () => openLightbox(URL.createObjectURL(entry.file)));
+    } else {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.textContent = "×";
+      remove.setAttribute("aria-label", "移除这张参考图");
+      remove.addEventListener("click", () => {
+        URL.revokeObjectURL(entry.objectUrl);
+        // 同步删服务端文件，刷新后才不会「复活」
+        if (entry.serverId) void deleteExtraRefOnServer(entry.serverId);
+        state.extraRefs = state.extraRefs.filter((e) => e.id !== entry.id);
+        renderExtraRefs();
+      });
+      wrap.append(remove);
+    }
     return wrap;
   });
   list.replaceChildren(...items);
@@ -1026,7 +1070,8 @@ async function restoreExtraRefs() {
   } catch {
     return; // 服务未起 / 网络异常：参考图区保持空状态，不影响主流程
   }
-  for (const saved of entries.slice().reverse().slice(0, MAX_EXTRA_REFS)) {
+  const ordered = [...entries.filter((entry) => entry.shared), ...entries.filter((entry) => !entry.shared).reverse()];
+  for (const saved of ordered.slice(0, MAX_EXTRA_REFS)) {
     try {
       const blob = await api.getRefImage("extraRefs", saved.id, "full");
       if (!blob.type.startsWith("image/")) continue;
@@ -1042,7 +1087,9 @@ async function restoreExtraRefs() {
         file,
         objectUrl,
         dataUrl: "",
-        serverId: saved.id
+        serverId: saved.id,
+        shared: saved.shared === true,
+        enabled: true
       });
     } catch {
       // 单张拉取失败跳过，不影响其余回填
@@ -1093,10 +1140,14 @@ function initExtraRefs() {
 
   $("#extraRefsClear").addEventListener("click", () => {
     state.extraRefs.forEach((entry) => {
+      if (entry.shared) {
+        entry.enabled = false;
+        return;
+      }
       URL.revokeObjectURL(entry.objectUrl);
       if (entry.serverId) void deleteExtraRefOnServer(entry.serverId);
     });
-    state.extraRefs = [];
+    state.extraRefs = state.extraRefs.filter((entry) => entry.shared);
     renderExtraRefs();
   });
 }
@@ -1526,6 +1577,7 @@ function initHistory() {
   });
 
   $("#historyRefresh").addEventListener("click", () => void loadHistory());
+  void loadHistory({ revealShared: true });
 
   const autosave = $("#historyAutosave");
   autosave.checked = state.historyAutosave;

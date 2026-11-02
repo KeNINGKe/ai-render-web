@@ -1507,6 +1507,26 @@ textarea::placeholder {
   color: #fff;
 }
 
+.extra-ref-item[data-shared] {
+  height: auto;
+}
+
+.extra-ref-item[data-shared] img {
+  height: 72px;
+  object-fit: contain;
+  cursor: zoom-in;
+}
+
+.extra-ref-item label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+
 /* 添加区：与主上传区完全同一套规则（虚线 / 网格 / fill 底 / 圆角），只是高度压缩 */
 .extra-ref-dropzone {
   display: flex;
@@ -1915,6 +1935,22 @@ textarea::placeholder {
   background: var(--surface);
   color: var(--ink);
   border-color: var(--muted-2);
+}
+
+.history-details {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.history-details summary {
+  cursor: pointer;
+}
+
+.history-details p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
 }
 
 .history-message {
