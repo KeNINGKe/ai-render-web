@@ -2,7 +2,7 @@
 // 门禁校验：PBKDF2-SHA256，210000 次迭代，32 字节派生值；只含公开派生参数，不含明文口令。
 export const RUNTIME_CONFIG = {
   "mode": "direct",
-  "dailyLimit": 50,
+  "dailyLimit": 0,
   "gate": {
     "salt": "FsN8p8uEp7efhhlwlpdbMQ==",
     "digest": "1yuI38ALTrCLXzfY7rEFsldtHoS7tAyqLOKDgUx0dlA=",

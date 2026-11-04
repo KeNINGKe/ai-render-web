@@ -28,7 +28,8 @@ const DB_VERSION = 1;
 const REF_COLLECTIONS = ["gallery", "extraRefs"];
 const DEFAULT_HISTORY_DISPLAY_LIMIT = 60;
 const DEFAULT_REF_MAX_ENTRIES = 8;
-const DEFAULT_ATTEMPT_LIMIT = 50;
+// 兜底默认配额：0 = 不限额（外部访客默认不限）。仅当调用方不传 limit 时生效。
+const DEFAULT_ATTEMPT_LIMIT = 0;
 const ATTEMPTS_KEY = "attempts";
 
 // data URL 大小上限，与 render-history.js 落盘口径一致。

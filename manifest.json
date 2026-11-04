@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-02T06:33:33.897Z",
+  "generatedAt": "2026-11-04T01:32:28.087Z",
   "sourceCommit": null,
   "preview": false,
   "entry": "index.html",
   "runtime": {
     "mode": "direct",
-    "dailyLimit": 50
+    "dailyLimit": 0
   },
   "files": [
     {
@@ -35,8 +35,8 @@
     },
     {
       "path": "browser-render-store.js",
-      "bytes": 24451,
-      "sha256": "244ddb76dcc0ba5c7b99064ac74650b9295a7758c8ba4182fd764c49ba34b48b"
+      "bytes": 24561,
+      "sha256": "8521812c1bc0fb2333340ed01cbd44b90fc8c9329002becfae6c48c564207dea"
     },
     {
       "path": "cloud-account.js",
@@ -50,8 +50,8 @@
     },
     {
       "path": "direct-renderer-api.js",
-      "bytes": 13855,
-      "sha256": "480b6145ace43e0b2eb5060990735d09e1715124e09e9de55b354e0559a06636"
+      "bytes": 14007,
+      "sha256": "8fbd1f4d5e5bcc8fb2e48589b63d3ca3aa928dd0b243d4e1f1c4cb9fc5f402af"
     },
     {
       "path": "index.html",
@@ -80,8 +80,8 @@
     },
     {
       "path": "runtime-config.js",
-      "bytes": 668,
-      "sha256": "c884bf5aeea448fe37ebc992b5740a3c7cc14cd1f1d19e981a5688534ccd22a2"
+      "bytes": 667,
+      "sha256": "c27fcd2f4d0a817e89e66db2951edaff43f70fe7e7ff5052998cdd7144243890"
     },
     {
       "path": "seedream-models.js",

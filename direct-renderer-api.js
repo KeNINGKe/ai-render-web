@@ -87,8 +87,9 @@ export function createDirectRendererApi(config = {}, deps = {}) {
   const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
   const archive = deps.cloudArchive ?? createCloudArchive(config.cloudArchive, { fetchImpl });
   const now = deps.now ?? (() => new Date());
-  const dailyLimit = config.dailyLimit ?? 50;
-  if (!Number.isSafeInteger(dailyLimit) || dailyLimit < 1) throw apiError("每日次数配置无效", 400);
+  // 0 或缺省 = 不限额；正整数 = 每日上限。
+  const dailyLimit = config.dailyLimit ?? 0;
+  if (!Number.isSafeInteger(dailyLimit) || dailyLimit < 0) throw apiError("每日次数配置无效", 400);
   const timeoutMs = deps.timeoutMs ?? config.renderTimeoutMs ?? 5 * 60 * 1000;
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw apiError("渲染超时配置无效", 400);
   let storePromise;
@@ -98,6 +99,7 @@ export function createDirectRendererApi(config = {}, deps = {}) {
   const getStore = () => storePromise ??= Promise.resolve().then(() => deps.store ?? createBrowserRenderStore());
 
   async function reserve() {
+    if (dailyLimit <= 0) return ""; // 不限额：不预留不计数，也无需会话兜底
     const date = new Date(now());
     const day = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
     if (day !== sessionDate) { sessionDate = day; sessionUsed = 0; }
