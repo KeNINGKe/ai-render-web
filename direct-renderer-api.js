@@ -170,7 +170,9 @@ export function createDirectRendererApi(config = {}, deps = {}) {
           body: JSON.stringify({
             model, prompt, size,
             image: refs.length === 1 ? refs[0] : refs,
-            response_format: "url", stream: false, watermark: true
+            // 要 b64_json 而不是 url：结果 CDN 的跨域下载未放行 CORS（线上同事实测被
+            // 浏览器拦截且已计费），b64 随 API 响应直达，不产生第二次跨域请求。
+            response_format: "b64_json", stream: false, watermark: true
           })
         });
       } catch {

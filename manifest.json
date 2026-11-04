@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T01:32:28.087Z",
+  "generatedAt": "2026-11-04T02:17:18.858Z",
   "sourceCommit": null,
   "preview": false,
   "entry": "index.html",
@@ -50,8 +50,8 @@
     },
     {
       "path": "direct-renderer-api.js",
-      "bytes": 14007,
-      "sha256": "8fbd1f4d5e5bcc8fb2e48589b63d3ca3aa928dd0b243d4e1f1c4cb9fc5f402af"
+      "bytes": 14230,
+      "sha256": "b0459e79920a6aba5b9e734da2cdfdc6b48c7c6c9193fac05da7993facdd953b"
     },
     {
       "path": "index.html",
