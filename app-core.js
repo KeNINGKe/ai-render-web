@@ -8,7 +8,6 @@ import { RUNTIME_CONFIG } from "./runtime-config.js";
 import { createRendererApi } from "./renderer-api.js";
 import { unlockStaticPage } from "./static-access.js";
 import { createCloudArchive } from "./cloud-archive.js";
-import { initCloudAccount } from "./cloud-account.js";
 
 const DIRECT_MODE = RUNTIME_CONFIG.mode === "direct";
 if (DIRECT_MODE) {
@@ -848,7 +847,7 @@ function historyCard(entry) {
     ["下载", () => void downloadHistoryEntry(entry)],
     ["复制提示词", (button) => void copyHistoryPrompt(entry, button)],
     ...(entry.shared ? [["设为主图", () => void useHistoryAsMain(entry)]] : [
-      ...(cloudArchive.enabled ? [["同步后台", (button) => void syncHistoryEntry(entry, button)]] : []),
+      ...(cloudArchive.enabled ? [["同步云端", (button) => void syncHistoryEntry(entry, button)]] : []),
       ["删除", () => void removeHistoryEntry(entry)]
     ])
   ].forEach(([label, handler]) => {
@@ -968,20 +967,6 @@ async function syncHistoryEntry(entry, button) {
   } finally {
     if (button) button.disabled = false;
   }
-}
-
-async function syncLocalHistory(progress) {
-  await cloudArchive.requireUser();
-  const data = await api.listHistory();
-  const entries = (data.entries || []).filter((entry) => !entry.shared);
-  let saved = 0;
-  let failed = 0;
-  for (const entry of entries) {
-    try { await syncHistoryEntry(entry); saved++; }
-    catch { failed++; }
-    progress(saved + failed, entries.length);
-  }
-  return { saved, failed };
 }
 
 async function removeHistoryEntry(entry) {
@@ -1899,7 +1884,6 @@ initAvoid();
 initInpaint();
 initHistory();
 initCompare();
-void initCloudAccount({ archive: cloudArchive, syncHistory: syncLocalHistory });
 if (!DIRECT_MODE) void initAuth(); // 登录探测：拿身份显示徽标 + 角色感知文案；未登录兜底跳登录页
 $("#logoutButton").addEventListener("click", () => void logout());
 // 启动恢复：主图取图库队首（须先 loadGallery 拿到列表），附加参考图并行恢复

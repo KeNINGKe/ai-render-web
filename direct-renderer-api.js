@@ -140,7 +140,7 @@ export function createDirectRendererApi(config = {}, deps = {}) {
   async function ensureArchiveUser() {
     if (await archive.getUser()) return;
     if (!archive.signInAnonymously) {
-      throw apiError("请先登录团队账号", 401);
+      throw apiError("云端连接暂不可用，请刷新页面后重试", 401);
     }
     await archive.signInAnonymously();
   }
@@ -251,7 +251,7 @@ export function createDirectRendererApi(config = {}, deps = {}) {
         });
         data.cloudHistoryId = saved.id;
       } catch {
-        data.warning = [data.warning, "渲染已完成，但同步管理后台失败。请先下载结果；已保存的本机历史可点击「同步后台」重试，不要重新渲染。"].filter(Boolean).join(" ");
+        data.warning = [data.warning, "渲染已完成，但云端同步失败。请先下载结果；已保存的本机历史可点击「同步云端」重试，不要重新渲染。"].filter(Boolean).join(" ");
       }
     }
     return data;
@@ -270,7 +270,7 @@ export function createDirectRendererApi(config = {}, deps = {}) {
     const saved = await storeCall("saveHistory", metadata);
     if (archive.enabled) {
       try { await archive.saveRender({ ...metadata, localId: saved.id, referenceCount: 1 }); }
-      catch { saved.warning = "合成结果已保存在本机，但同步管理后台失败，可从历史中重试同步。"; }
+      catch { saved.warning = "合成结果已保存在本机，但云端同步失败，可从历史中重试同步。"; }
     }
     return saved;
   }

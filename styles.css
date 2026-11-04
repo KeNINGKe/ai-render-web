@@ -1937,31 +1937,6 @@ textarea::placeholder {
   border-color: var(--muted-2);
 }
 
-.admin-link {
-  color: var(--ink-2);
-  font-size: 12px;
-  text-underline-offset: 4px;
-  white-space: nowrap;
-}
-
-.cloud-account {
-  margin-bottom: 20px;
-  padding: 18px 22px;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--orange, #e8590c);
-  border-radius: 8px;
-  background: var(--surface-2);
-  color: var(--ink-2);
-}
-
-.cloud-account h2 { margin: 0 0 8px; font-size: 15px; }
-.cloud-account p { font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-.cloud-login-form, .cloud-account-user { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
-.cloud-login-form label { display: grid; gap: 6px; font-size: 12px; flex: 1 1 180px; min-width: 0; }
-.cloud-login-form input { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); }
-.cloud-account-user { align-items: center; }
-.cloud-account-user span { overflow-wrap: anywhere; }
-
 .history-details {
   margin-top: 6px;
   font-size: 12px;

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T02:17:18.858Z",
+  "generatedAt": "2026-11-04T02:52:02.738Z",
   "sourceCommit": null,
   "preview": false,
   "entry": "index.html",
@@ -30,18 +30,13 @@
     },
     {
       "path": "app-core.js",
-      "bytes": 71656,
-      "sha256": "509734fbf790655b05f8810b019166633f38079c59b800663098d0b26a1b244c"
+      "bytes": 71102,
+      "sha256": "d28b044e509bc933513a4626ce02333bd54914dcc1b71ff3361bd5cf1e58e30a"
     },
     {
       "path": "browser-render-store.js",
       "bytes": 24561,
       "sha256": "8521812c1bc0fb2333340ed01cbd44b90fc8c9329002becfae6c48c564207dea"
-    },
-    {
-      "path": "cloud-account.js",
-      "bytes": 2571,
-      "sha256": "4582b4862adcdbd6b41829fe903b1f55a8d3859c13fd9ff460c33142e3a51b4e"
     },
     {
       "path": "cloud-archive.js",
@@ -50,13 +45,13 @@
     },
     {
       "path": "direct-renderer-api.js",
-      "bytes": 14230,
-      "sha256": "b0459e79920a6aba5b9e734da2cdfdc6b48c7c6c9193fac05da7993facdd953b"
+      "bytes": 14245,
+      "sha256": "b9600c752587c766ed94e1955e5b30cbde3a3e2c075e625d4c7515b98e93763b"
     },
     {
       "path": "index.html",
-      "bytes": 18151,
-      "sha256": "7250d9ea70c6d532fb7cc4567f392578ef7603ec94a4b4868fc9415a28354d53"
+      "bytes": 16971,
+      "sha256": "983f91942a7366954da4c5811c51eb226e0e74b1b7a41eeb04ced26a94510e05"
     },
     {
       "path": "mask-tools.js",
@@ -130,8 +125,8 @@
     },
     {
       "path": "styles.css",
-      "bytes": 41257,
-      "sha256": "d989447b791d8c182e4f4d0460d116da440f7ceb5115851ec749e668bcd04c19"
+      "bytes": 40307,
+      "sha256": "fdaa6cdceb90a50761dd9379864b958ec2607c17f130eec0143385fd5888703b"
     }
   ]
 }
