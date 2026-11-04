@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T02:52:02.738Z",
+  "generatedAt": "2026-11-04T08:46:47.365Z",
   "sourceCommit": null,
   "preview": false,
   "entry": "index.html",
@@ -30,23 +30,23 @@
     },
     {
       "path": "app-core.js",
-      "bytes": 71102,
-      "sha256": "d28b044e509bc933513a4626ce02333bd54914dcc1b71ff3361bd5cf1e58e30a"
+      "bytes": 77181,
+      "sha256": "d84140d8dc49b6cabdf8e343ab80fcbf7ccaedd34e9f3b4db2dc3367c41225d9"
     },
     {
       "path": "browser-render-store.js",
-      "bytes": 24561,
-      "sha256": "8521812c1bc0fb2333340ed01cbd44b90fc8c9329002becfae6c48c564207dea"
+      "bytes": 25715,
+      "sha256": "ea7faa5142b94e46507f74e74ef973b97091d1620fc7ec2172f8068aadf4b9fe"
     },
     {
       "path": "cloud-archive.js",
-      "bytes": 18002,
-      "sha256": "f53f0c4aa503c5fbe8a09580983309c3fb057f6f7722fdcacb37f23073a1e956"
+      "bytes": 21737,
+      "sha256": "417e6c8b5981451e3802cb3a3785af4554fbc67ba0559badd9de78867af71c1b"
     },
     {
       "path": "direct-renderer-api.js",
-      "bytes": 14245,
-      "sha256": "b9600c752587c766ed94e1955e5b30cbde3a3e2c075e625d4c7515b98e93763b"
+      "bytes": 16544,
+      "sha256": "f22d5026eef0932ec79f4cd41f4af167d192ca3563c88faee0547b5581daa10e"
     },
     {
       "path": "index.html",

@@ -77,7 +77,9 @@ function projectHistory(value) {
     referenceCount: Number(value.referenceCount) || 1,
     hasThumb: Boolean(value.hasThumb),
     username: String(value.username || ""),
-    keySource: ["shared", "own"].includes(value.keySource) ? value.keySource : ""
+    keySource: ["shared", "own"].includes(value.keySource) ? value.keySource : "",
+    ...(typeof value.cloudArchivePending === "boolean" ? { cloudArchivePending: value.cloudArchivePending } : {}),
+    ...(value.cloudHistoryId ? { cloudHistoryId: String(value.cloudHistoryId) } : {})
   };
 }
 
@@ -333,7 +335,8 @@ export function createBrowserRenderStore(options = {}) {
       hasThumb: Boolean(thumbnail),
       username: String(entry.username ?? ""),
       // 直连模式显式传 ""（合成保存）；未传默认 "own"；其他值按旧口径留空。
-      keySource: entry.keySource == null ? "own" : (["shared", "own"].includes(entry.keySource) ? entry.keySource : "")
+      keySource: entry.keySource == null ? "own" : (["shared", "own"].includes(entry.keySource) ? entry.keySource : ""),
+      ...(typeof entry.cloudArchivePending === "boolean" ? { cloudArchivePending: entry.cloudArchivePending } : {})
     };
     const blobs = {
       id: meta.id,
@@ -344,7 +347,25 @@ export function createBrowserRenderStore(options = {}) {
       tx.objectStore("history").put(meta);
       tx.objectStore("historyBlobs").put(blobs);
     });
-    return { ok: true, id: meta.id };
+    return { ok: true, id: meta.id, createdAt: meta.createdAt };
+  }
+
+  async function updateHistoryArchive(id, { cloudArchivePending, cloudHistoryId } = {}) {
+    if (!enabled) throw disabledError();
+    if (typeof cloudArchivePending !== "boolean") throw new TypeError("缺少云归档状态。");
+    let found = false;
+    await runTransaction(["history"], "readwrite", (tx) => {
+      const history = tx.objectStore("history");
+      const request = history.get(String(id || ""));
+      request.onsuccess = () => {
+        if (!request.result) return;
+        found = true;
+        history.put({ ...request.result, cloudArchivePending,
+          ...(cloudHistoryId ? { cloudHistoryId: String(cloudHistoryId) } : {}) });
+      };
+    });
+    if (!found) throw notFoundError("历史记录不存在或已被删除。");
+    return { ok: true };
   }
 
   function listHistory() {
@@ -583,6 +604,7 @@ export function createBrowserRenderStore(options = {}) {
     listHistory,
     getHistoryImage,
     saveHistory,
+    updateHistoryArchive,
     deleteHistory,
     listRefs,
     getRefImage,

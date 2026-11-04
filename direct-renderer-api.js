@@ -85,7 +85,7 @@ function requestLifetime(signal, timeoutMs) {
 
 export function createDirectRendererApi(config = {}, deps = {}) {
   const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
-  const archive = deps.cloudArchive ?? createCloudArchive(config.cloudArchive, { fetchImpl });
+  const archive = deps.cloudArchive ?? createCloudArchive(config.cloudArchive, { fetchImpl, persistAnonymous: true });
   const now = deps.now ?? (() => new Date());
   // 0 或缺省 = 不限额；正整数 = 每日上限。
   const dailyLimit = config.dailyLimit ?? 0;
@@ -143,6 +143,33 @@ export function createDirectRendererApi(config = {}, deps = {}) {
       throw apiError("云端连接暂不可用，请刷新页面后重试", 401);
     }
     await archive.signInAnonymously();
+  }
+
+  async function updateArchiveState(id, cloudHistoryId, cloudArchivePending = false) {
+    if (!id) return;
+    try {
+      await (await getStore()).updateHistoryArchive?.(id, {
+        cloudArchivePending, ...(cloudHistoryId ? { cloudHistoryId } : {})
+      });
+    } catch { /* 本地状态更新失败不应丢弃已有结果或阻断云端补传。 */ }
+  }
+
+  async function syncHistoryEntry(entry) {
+    if (!archive.enabled) throw apiError("云归档未配置", 503);
+    if (typeof entry?.id !== "string" || !entry.id) throw apiError("缺少历史记录 id", 400);
+    await updateArchiveState(entry.id, undefined, true);
+    await ensureArchiveUser();
+    const imageDataUrl = await blobDataUrl(await storeCall("getHistoryImage", entry.id, "result"));
+    let thumbnail;
+    try { thumbnail = await deps.makeResultThumbnail?.(imageDataUrl); } catch { /* 原图仍可归档 */ }
+    const saved = await archive.saveRender({
+      imageDataUrl, localId: entry.id,
+      ...(entry.createdAt ? { createdAt: entry.createdAt } : {}),
+      prompt: entry.prompt, model: entry.model, size: entry.size, referenceCount: entry.referenceCount || 1,
+      ...(thumbnail ? { thumbnail } : {})
+    });
+    await updateArchiveState(entry.id, saved.id);
+    return { ok: true, id: entry.id, cloudHistoryId: saved.id, cloudArchivePending: false };
   }
 
   async function render(payload, { signal } = {}) {
@@ -221,21 +248,25 @@ export function createDirectRendererApi(config = {}, deps = {}) {
         imageDataUrl = await blobDataUrl(resultBlob);
       } catch {
         throw apiError(`生成结果无法读取（下载、CORS 或图片格式错误）。${POSSIBLY_BILLED}${resultUrl ? "可打开结果链接手动保存。" : ""}`, 502, {
-          pauseQueue: true, ...(resultUrl ? { resultUrl } : {})
+          pauseQueue: true, ...(first?.url || first?.b64_json ? { generated: true } : {}),
+          ...(resultUrl ? { resultUrl } : {})
         });
       }
     } finally { lifetime.dispose(); }
 
     const data = { ok: true, imageDataUrl, size, model, keySource: "own", ...(warning ? { warning } : {}) };
-    if (payload.saveHistory !== false) {
+    let createdAt;
+    if (archive.enabled || payload.saveHistory !== false) {
       try {
         const saved = await storeCall("saveHistory", {
           imageDataUrl, prompt, model, size, referenceCount: refs.length,
           ...(typeof payload.thumbnail === "string" ? { thumbnail: payload.thumbnail } : {}),
-          username: "", keySource: "own"
+          username: "", keySource: "own",
+          ...(archive.enabled ? { cloudArchivePending: true } : {})
         });
         if (saved?.ok === false || !saved?.id) throw new Error("历史未保存");
         data.historyId = saved.id;
+        createdAt = saved.createdAt;
       } catch {
         data.warning = [warning, "渲染已完成，但历史保存失败；请立即下载结果，或删除旧历史释放空间。"].filter(Boolean).join(" ");
       }
@@ -247,11 +278,18 @@ export function createDirectRendererApi(config = {}, deps = {}) {
         const saved = await archive.saveRender({
           imageDataUrl, prompt, model, size, referenceCount: refs.length,
           localId: data.historyId || globalThis.crypto.randomUUID(),
+          ...(createdAt ? { createdAt } : {}),
           ...(thumbnail ? { thumbnail } : {})
         });
         data.cloudHistoryId = saved.id;
+        data.cloudArchivePending = false;
+        await updateArchiveState(data.historyId, saved.id);
       } catch {
-        data.warning = [data.warning, "渲染已完成，但云端同步失败。请先下载结果；已保存的本机历史可点击「同步云端」重试，不要重新渲染。"].filter(Boolean).join(" ");
+        data.cloudArchivePending = true;
+        const recovery = data.historyId
+          ? "本机历史已保留，可从历史同步云端重试。"
+          : "本机历史也未保存，无法从历史补传，请立即下载结果。";
+        data.warning = [data.warning, `渲染已完成，但云端同步失败。${recovery}不要重新渲染。`].filter(Boolean).join(" ");
       }
     }
     return data;
@@ -265,12 +303,23 @@ export function createDirectRendererApi(config = {}, deps = {}) {
     const metadata = {
       imageDataUrl: payload.imageDataUrl, prompt: payload.prompt, model: payload.model, size: payload.size,
       ...(typeof payload.thumbnail === "string" ? { thumbnail: payload.thumbnail } : {}),
-      username: "", keySource: ""
+      username: "", keySource: "",
+      ...(archive.enabled ? { cloudArchivePending: true } : {})
     };
     const saved = await storeCall("saveHistory", metadata);
     if (archive.enabled) {
-      try { await archive.saveRender({ ...metadata, localId: saved.id, referenceCount: 1 }); }
-      catch { saved.warning = "合成结果已保存在本机，但云端同步失败，可从历史中重试同步。"; }
+      try {
+        const cloud = await archive.saveRender({
+          ...metadata, localId: saved.id, referenceCount: 1,
+          ...(saved.createdAt ? { createdAt: saved.createdAt } : {})
+        });
+        saved.cloudHistoryId = cloud.id;
+        saved.cloudArchivePending = false;
+        await updateArchiveState(saved.id, cloud.id);
+      } catch {
+        saved.cloudArchivePending = true;
+        saved.warning = "合成结果已保存在本机，但云端同步失败，可从历史中重试同步。";
+      }
     }
     return saved;
   }
@@ -280,6 +329,7 @@ export function createDirectRendererApi(config = {}, deps = {}) {
     logout: async () => ({ ok: true }),
     getStatus: async () => ({ ok: true, configured: false, model: DEFAULT_SEEDREAM_MODEL, models: SEEDREAM_MODELS }),
     render,
+    syncHistoryEntry,
     listHistory: () => list("listHistory"),
     getHistoryImage: (id, kind = "result") => storeCall("getHistoryImage", id, kind),
     deleteHistory: (id) => storeCall("deleteHistory", id),

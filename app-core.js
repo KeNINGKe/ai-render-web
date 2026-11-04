@@ -14,7 +14,7 @@ if (DIRECT_MODE) {
   document.querySelector("#workspace").hidden = true;
   await unlockStaticPage(RUNTIME_CONFIG);
 }
-const cloudArchive = createCloudArchive(DIRECT_MODE ? RUNTIME_CONFIG.cloudArchive : undefined);
+const cloudArchive = createCloudArchive(DIRECT_MODE ? RUNTIME_CONFIG.cloudArchive : undefined, { persistAnonymous: DIRECT_MODE });
 const api = await createRendererApi(RUNTIME_CONFIG, { cloudArchive, makeResultThumbnail: makeThumbnail });
 const STORAGE_PREFIX = DIRECT_MODE ? "ai_render_web_" : "";
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
@@ -53,7 +53,11 @@ const state = {
   // 多变体队列：入队时固化图片快照与参数，之后改提示词 / 换图不影响已入队项
   queue: [],
   queueRunning: false,
-  // 渲染历史（落盘在本机 data/renders，可关）
+  // 受控模式由服务端强制归档，其他模式保留自动保存选项。
+  managedArchive: false,
+  // 共享口令模式：无个人账号，历史为全员共享，删除只留管理后台处理。
+  sharedGate: false,
+  pendingArchiveIds: new Set(),
   historyAutosave: readLs(LS_HISTORY_AUTOSAVE) !== "off",
   historyEntries: [],
   historyLoading: false,
@@ -136,8 +140,21 @@ function showRecoveryLink(resultUrl) {
   } catch { /* 无效结果地址不显示 */ }
 }
 
-function showRenderError(error) {
+async function showRenderError(error) {
   showResultMessage(error.message, { error: true });
+  if (state.managedArchive && error.generated && error.historyId) {
+    state.pendingArchiveIds.add(error.historyId);
+    setInputMessage(`${error.message} 图片已生成，可在历史中查看、下载或补传云端。`);
+    await loadHistory();
+    try {
+      const blob = await api.getHistoryImage(error.historyId, "result");
+      state.lastReferenceDataUrl = "";
+      setCompareMode("single");
+      showResult(await readFileAsDataUrl(blob));
+    } catch {
+      showHistoryMessage("已保留生成记录，请在历史中重试查看、下载或补传云端。", true);
+    }
+  }
   if (error.resultUrl) showRecoveryLink(error.resultUrl);
 }
 
@@ -236,9 +253,11 @@ async function initAuth() {
     const data = await api.getAuth();
     if (data?.username) {
       state.auth = { username: data.username, role: data.role || "user" };
-      $("#userName").textContent = state.auth.role === "admin"
-        ? `${state.auth.username} · 管理员`
-        : state.auth.username;
+      $("#userName").textContent = data.username === "shared"
+        ? "口令已验证"
+        : state.auth.role === "admin"
+          ? `${state.auth.username} · 管理员`
+          : state.auth.username;
       $("#userBadge").hidden = false;
       applyRoleToSettings();
       checkBackend();
@@ -505,6 +524,18 @@ function showResultMessage(message, { error = false } = {}) {
 async function checkBackend() {
   try {
     const data = await api.getStatus();
+    const managedArchive = data.managedArchive === true;
+    const archiveModeChanged = state.managedArchive !== managedArchive;
+    state.managedArchive = managedArchive;
+    state.sharedGate = data.sharedGate === true;
+    if (state.managedArchive || (DIRECT_MODE && cloudArchive.enabled)) {
+      state.historyAutosave = true;
+      $("#historyAutosave").checked = true;
+      $("#historyAutosave").disabled = true;
+      $("#historyStorageLabel").textContent = state.managedArchive
+        ? "生成结果自动保存到云端（必选）" : "结果自动保存到云端，本机保留补传副本";
+    }
+    if (archiveModeChanged) renderHistoryList();
     // 服务端对普通账号强制 configured=false（即便 .env 有共享 Key），
     // 所以「就绪」判断对普通账号自动收窄为"必须自己填 Key"。
     const envConfigured = Boolean(data.configured);
@@ -536,7 +567,7 @@ function buildSeedreamPayload({ prompt, size, referenceImages }) {
     model: settings.model,
     ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
     ...(settings.customModel ? { customModel: settings.customModel } : {}),
-    ...(state.historyAutosave ? {} : { saveHistory: false })
+    ...(state.managedArchive || state.historyAutosave ? {} : { saveHistory: false })
   };
 }
 
@@ -565,6 +596,7 @@ async function renderOnce({
   document.querySelectorAll(".result-recovery").forEach((link) => link.remove());
   const data = await api.render(payload, { signal: AbortSignal.timeout(RENDER_TIMEOUT_MS) });
   if (data.warning) setInputMessage(data.warning);
+  else if (data.cloudHistoryId) setInputMessage("结果已自动保存到云端。");
   if (!data.imageDataUrl) throw new Error("渲染服务没有返回图片");
   return data;
 }
@@ -607,7 +639,7 @@ async function submitRender() {
     refreshHistoryIfOpen();
   } catch (error) {
     $("#jobState").textContent = "出错";
-    showRenderError(error);
+    await showRenderError(error);
   } finally {
     state.submitting = false;
     updateRenderButton();
@@ -703,6 +735,7 @@ async function runQueue() {
   const failures = [];
   const warnings = [];
   let lastResult = null;
+  let generatedError = null;
 
   for (let done = 1; done <= items.length; done += 1) {
     const item = items[done - 1];
@@ -728,8 +761,17 @@ async function runQueue() {
       }
     } catch (error) {
       failures.push(`#${done} ${error.message}`);
+      // 已生成的任务只补归档，不再作为待生成任务重试。
+      if (error.generated) {
+        state.queue = state.queue.filter((q) => q.id !== item.id);
+        generatedError = error;
+        if (state.managedArchive && error.historyId) state.pendingArchiveIds.add(error.historyId);
+      }
       if (error.resultUrl) showRecoveryLink(error.resultUrl);
-      if (DIRECT_MODE && error.pauseQueue) break;
+      if (error.pauseQueue || error.generated) {
+        warnings.push("队列已暂停，剩余变体尚未生成。");
+        break;
+      }
     }
   }
 
@@ -740,12 +782,15 @@ async function runQueue() {
   } else {
     showResultMessage(failures[0] || "队列渲染失败", { error: true });
   }
+  if (generatedError) await showRenderError(generatedError);
   state.queueRunning = false;
   updateQueueStrip();
   updateRenderButton();
   $("#jobState").textContent =
     failures.length === 0 ? "完成" : lastResult ? `完成 · ${failures.length} 张失败` : "出错";
-  setInputMessage([failures.length ? `失败的变体：${failures.join("；")}` : "", ...warnings].filter(Boolean).join("；"));
+  setInputMessage([failures.length ? `失败的变体：${failures.join("；")}` : "", ...warnings,
+    state.managedArchive && generatedError?.historyId ? "图片已生成，可在历史中查看、下载或补传云端。" : ""
+  ].filter(Boolean).join("；"));
   refreshHistoryIfOpen();
 }
 
@@ -768,13 +813,23 @@ async function loadHistory({ revealShared = false } = {}) {
   try {
     const data = await api.listHistory();
     state.historyEntries = data.entries || [];
+    // 列表暂时不可用或尚未包含新条目时，仍保留补传入口。
+    if (state.managedArchive) {
+      for (const id of state.pendingArchiveIds) {
+        if (!state.historyEntries.some((entry) => entry.id === id)) {
+          state.historyEntries.unshift({ id, createdAt: "", prompt: "", model: "", size: "" });
+        }
+      }
+    }
     renderHistoryList();
     if (revealShared && state.historyEntries.some((entry) => entry.shared)) {
       $("#historyPanel").hidden = false;
       $("#historyToggle").setAttribute("aria-expanded", "true");
       $("#historyToggle").classList.add("open");
     }
-    showHistoryMessage(data.warning || "");
+    const pending = state.historyEntries.filter(entry => entry.cloudArchivePending === true && !entry.shared);
+    showHistoryMessage(data.warning || (pending.length ? `${pending.length} 条结果待同步云端，可点击「同步云端」补传。` : ""));
+    if (DIRECT_MODE && cloudArchive.enabled && pending.length) void resumePendingArchives(pending);
   } catch (error) {
     showHistoryMessage(error.message, true);
   } finally {
@@ -822,14 +877,16 @@ function historyCard(entry) {
 
   const title = document.createElement("p");
   title.className = "history-title";
-  title.textContent = `${entry.shared ? "固定示例 · " : ""}${formatHistoryTime(entry.createdAt)} · ${modelLabel(entry.model)} · ${entry.size}`;
+  const archiveLabel = entry.cloudArchivePending === true || state.pendingArchiveIds.has(entry.id)
+    ? "待补传云端 · " : entry.cloudHistoryId ? "已保存云端 · " : "";
+  title.textContent = `${entry.shared ? "固定示例 · " : ""}${archiveLabel}${entry.createdAt ? formatHistoryTime(entry.createdAt) : entry.id} · ${modelLabel(entry.model)} · ${entry.size}`;
 
   // 归属标注：渲染人 + Key 来源（认证上线前的旧记录两者皆空，不显示）。
   if (entry.username || entry.keySource) {
     const badge = document.createElement("span");
     badge.className = "history-owner";
     badge.textContent = [
-      entry.username ? `渲染人 ${entry.username}` : "",
+      entry.username === "shared" ? "口令用户" : entry.username ? `渲染人 ${entry.username}` : "",
       entry.keySource === "shared" ? "共享 Key" : entry.keySource === "own" ? "自有 Key" : ""
     ].filter(Boolean).join(" · ");
     title.append(document.createElement("br"), badge);
@@ -847,8 +904,11 @@ function historyCard(entry) {
     ["下载", () => void downloadHistoryEntry(entry)],
     ["复制提示词", (button) => void copyHistoryPrompt(entry, button)],
     ...(entry.shared ? [["设为主图", () => void useHistoryAsMain(entry)]] : [
-      ...(cloudArchive.enabled ? [["同步云端", (button) => void syncHistoryEntry(entry, button)]] : []),
-      ["删除", () => void removeHistoryEntry(entry)]
+      ...(state.managedArchive
+        ? [["补传云端", (button) => void recoverHistoryEntry(entry, button)]]
+        : cloudArchive.enabled ? [["同步云端", (button) => void syncHistoryEntry(entry, button)]] : []),
+      // 共享口令模式：记录是全员共享的强制归档数据，删除统一走管理后台，页面不提供删除。
+      ...(!state.sharedGate ? [["删除", () => void removeHistoryEntry(entry)]] : [])
     ])
   ].forEach(([label, handler]) => {
     const button = document.createElement("button");
@@ -945,34 +1005,92 @@ async function copyHistoryPrompt(entry, button) {
   }
 }
 
-async function syncHistoryEntry(entry, button) {
-  if (entry.shared) return;
-  if (button) { button.disabled = true; button.textContent = "同步中…"; }
+async function recoverHistoryEntry(entry, button) {
+  if (!state.managedArchive || entry.shared || button?.disabled) return;
+  if (state.submitting || state.queueRunning || state.inpaint.running) {
+    showHistoryMessage("请等待当前任务完成后再补传云端。");
+    return;
+  }
+  if (button) { button.disabled = true; button.textContent = "补传中…"; }
   try {
-    const image = await api.getHistoryImage(entry.id, "result");
-    const imageDataUrl = await readFileAsDataUrl(image);
-    const thumbnail = await makeThumbnail(imageDataUrl);
-    await cloudArchive.saveRender({
-      localId: entry.id, createdAt: entry.createdAt,
-      imageDataUrl,
-      ...(thumbnail ? { thumbnail } : {}),
-      prompt: entry.prompt, model: entry.model, size: entry.size, referenceCount: entry.referenceCount || 1
-    });
-    if (button) button.textContent = "已同步";
-    return true;
+    // 恢复端点只处理已保存的结果，不重新调用生成接口。
+    const data = await api.recoverRender(entry.id);
+    if (!data.imageDataUrl) throw new Error("恢复接口没有返回已保存的图片");
+    state.pendingArchiveIds.delete(entry.id);
+    state.lastReferenceDataUrl = "";
+    setCompareMode("single");
+    showResult(data.imageDataUrl);
+    $("#jobState").textContent = "完成";
+    setInputMessage("已补传云端，结果可查看或下载。");
+    await loadHistory();
+    showHistoryMessage("已补传云端。");
+    if (button) button.textContent = "已补传";
   } catch (error) {
-    if (button) { button.textContent = "重试同步"; showHistoryMessage(error.message, true); }
-    else throw error;
-    return false;
+    if (button) button.textContent = "重试补传";
+    await showRenderError(error);
+    showHistoryMessage(error.message, true);
   } finally {
     if (button) button.disabled = false;
   }
 }
 
+const archiveSyncingIds = new Set();
+const archiveAutoAttemptedIds = new Set();
+let archiveResumeRunning = false;
+
+async function syncHistoryEntry(entry, button) {
+  if (entry.shared || archiveSyncingIds.has(entry.id)) return false;
+  archiveSyncingIds.add(entry.id);
+  if (button) { button.disabled = true; button.textContent = "同步中…"; }
+  try {
+    const result = await api.syncHistoryEntry(entry);
+    entry.cloudArchivePending = false;
+    entry.cloudHistoryId = result.cloudHistoryId;
+    if (button) {
+      renderHistoryList();
+      showHistoryMessage("已保存到云端。");
+    }
+    return true;
+  } catch (error) {
+    if (button) { button.textContent = "重试同步"; showHistoryMessage(`云端同步失败：${error.message}。图片仍在本机，请勿重新渲染。`, true); }
+    else throw error;
+    return false;
+  } finally {
+    archiveSyncingIds.delete(entry.id);
+    if (button) button.disabled = false;
+  }
+}
+
+async function resumePendingArchives(entries) {
+  if (archiveResumeRunning || state.submitting || state.queueRunning || state.inpaint.running) return;
+  archiveResumeRunning = true;
+  let failed = false;
+  try {
+    for (const entry of entries) {
+      if (archiveAutoAttemptedIds.has(entry.id)) continue;
+      archiveAutoAttemptedIds.add(entry.id);
+      try { await syncHistoryEntry(entry); }
+      catch { failed = true; break; }
+    }
+    renderHistoryList();
+    const remaining = state.historyEntries.filter(entry => entry.cloudArchivePending === true).length;
+    showHistoryMessage(remaining
+      ? `${remaining} 条结果待同步云端${failed ? "，连接恢复后可点击「同步云端」补传" : ""}。图片仍在本机，请勿重新渲染。`
+      : "结果已自动补传到云端。", failed);
+  } finally { archiveResumeRunning = false; }
+}
+
+window.addEventListener("online", () => {
+  if (!DIRECT_MODE || !cloudArchive.enabled) return;
+  archiveAutoAttemptedIds.clear();
+  void loadHistory();
+});
+
 async function removeHistoryEntry(entry) {
   if (!confirm(`删除这条渲染历史？\n${formatHistoryTime(entry.createdAt)} · ${entry.size}`)) return;
   try {
     await api.deleteHistory(entry.id);
+    state.pendingArchiveIds.delete(entry.id);
     state.historyEntries = state.historyEntries.filter((e) => e.id !== entry.id);
     renderHistoryList();
   } catch (error) {
@@ -1521,7 +1639,8 @@ async function runInpaint() {
     setInpaintState("完成：蒙版外像素已回贴。可继续涂抹迭代，或将合成结果存入历史。");
   } catch (error) {
     setInpaintState(error.message, true);
-    if (error.resultUrl) showRecoveryLink(error.resultUrl);
+    if (error.generated) await showRenderError(error);
+    else if (error.resultUrl) showRecoveryLink(error.resultUrl);
   } finally {
     ctx.running = false;
     updateInpaintButtons();
@@ -1548,6 +1667,7 @@ async function saveInpaintComposite() {
     refreshHistoryIfOpen();
   } catch (error) {
     setInpaintState(error.message, true);
+    if (error.generated) await showRenderError(error);
   }
 }
 
@@ -1611,6 +1731,11 @@ function initHistory() {
   const autosave = $("#historyAutosave");
   autosave.checked = state.historyAutosave;
   autosave.addEventListener("change", () => {
+    if (state.managedArchive) {
+      autosave.checked = true;
+      state.historyAutosave = true;
+      return;
+    }
     state.historyAutosave = autosave.checked;
     writeLs(LS_HISTORY_AUTOSAVE, autosave.checked ? "on" : "off");
   });

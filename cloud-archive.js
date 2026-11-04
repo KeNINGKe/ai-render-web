@@ -27,14 +27,14 @@ function validateConfig(config) {
   return { url: url.origin, key };
 }
 
-function isoDate(value, endOfDay = false) {
+function isoDate(value, { endOfDay = false, local = false } = {}) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2}))?$/.test(value)) {
     throw fail('日期必须为 ISO 日期或时间');
   }
   const day = value.slice(0, 10);
   const calendar = new Date(`${day}T00:00:00.000Z`);
   if (!Number.isFinite(calendar.getTime()) || calendar.toISOString().slice(0, 10) !== day) throw fail('日期无效');
-  const date = new Date(value.length === 10 ? `${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z` : value);
+  const date = new Date(value.length === 10 ? `${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}${local ? '' : 'Z'}` : value);
   if (!Number.isFinite(date.getTime())) throw fail('日期无效');
   return date.toISOString();
 }
@@ -88,7 +88,30 @@ export function createCloudArchive(config = {}, deps = {}) {
     try { storage = globalThis.sessionStorage; } catch { /* Fall back to memory, never localStorage. */ }
   }
   const sessionKey = `cloud-archive:${url}:session`;
+  const anonymousKey = `cloud-archive:${url}:anonymous-session`;
+  let anonymousStorage;
+  if (deps.persistAnonymous === true) {
+    anonymousStorage = deps.anonymousStorage;
+    if (anonymousStorage === undefined) {
+      try { anonymousStorage = globalThis.localStorage; } catch { /* Durable storage is optional. */ }
+    }
+  }
+  const validSession = value => value && typeof value.access_token === 'string' && value.access_token
+    && typeof value.refresh_token === 'string' && value.refresh_token && Number.isFinite(value.expires_at);
+  const sameSession = (left, right) => left && right && left.access_token === right.access_token && left.refresh_token === right.refresh_token;
+  const readAnonymous = () => {
+    try {
+      const value = JSON.parse(anonymousStorage?.getItem(anonymousKey) ?? 'null');
+      return validSession(value) && value.is_anonymous === true && UUID.test(value.user_id) ? value : null;
+    } catch { return null; }
+  };
+  const removeAnonymous = active => {
+    if (sameSession(readAnonymous(), active)) {
+      try { anonymousStorage?.removeItem(anonymousKey); } catch { /* Storage unavailable. */ }
+    }
+  };
   let session = null;
+  let anonymousUserId = null;
   let generation = 0;
   let refreshPromise = null;
   const persist = value => {
@@ -98,12 +121,28 @@ export function createCloudArchive(config = {}, deps = {}) {
       else storage?.removeItem(sessionKey);
     } catch { /* A blocked sessionStorage still allows an in-memory session. */ }
   };
-  const clear = () => { generation += 1; persist(null); };
+  const persistAnonymous = () => {
+    if (session && anonymousUserId) {
+      try { anonymousStorage?.setItem(anonymousKey, JSON.stringify({ ...session, is_anonymous: true, user_id: anonymousUserId })); }
+      catch { /* Keep using the session when durable storage is blocked. */ }
+    }
+  };
+  const clear = (removeDurable = true) => {
+    if (removeDurable) removeAnonymous(session);
+    generation += 1;
+    anonymousUserId = null;
+    persist(null);
+  };
   try {
     const value = JSON.parse(storage?.getItem(sessionKey) ?? 'null');
-    if (value && typeof value.access_token === 'string' && value.access_token && typeof value.refresh_token === 'string' && value.refresh_token && Number.isFinite(value.expires_at)) session = value;
+    if (validSession(value)) session = value;
     else storage?.removeItem(sessionKey);
   } catch { try { storage?.removeItem(sessionKey); } catch { /* Storage unavailable. */ } }
+  const durable = readAnonymous();
+  if (durable && (!session || sameSession(session, durable))) {
+    anonymousUserId = durable.user_id;
+    if (!session) persist({ access_token: durable.access_token, refresh_token: durable.refresh_token, expires_at: durable.expires_at });
+  }
 
   async function request(path, { token, method = 'GET', body, headers = {}, responseType = 'json' } = {}) {
     const controller = new AbortController();
@@ -114,10 +153,10 @@ export function createCloudArchive(config = {}, deps = {}) {
         headers: { apikey: key, ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers }, body,
       });
       if (!response.ok) {
-        if (response.status === 401) clear();
+        if (response.status === 401 && token && token === session?.access_token) clear();
         let detail;
         try { detail = await response.json(); } catch { detail = {}; }
-        throw fail(detail.message || detail.msg || detail.error_description || detail.error || `云服务请求失败 (${response.status})`, response.status, detail.code || detail.error_code || String(detail.statusCode || ''));
+        throw fail(detail.message || detail.msg || detail.error_description || detail.error || `云服务请求失败 (${response.status})`, response.status, detail.code || detail.error_code || (detail.error === 'Duplicate' ? 'Duplicate' : String(detail.statusCode || '')));
       }
       const data = responseType === 'blob' ? await response.blob()
         : response.status === 204 ? null : await response.json();
@@ -137,7 +176,15 @@ export function createCloudArchive(config = {}, deps = {}) {
     if (!data || typeof data.access_token !== 'string' || !data.access_token || typeof data.refresh_token !== 'string' || !data.refresh_token) throw fail('登录响应缺少有效会话');
     const expiresAt = Number(data.expires_at) || Math.floor(Date.now() / 1000) + Number(data.expires_in);
     if (!Number.isFinite(expiresAt)) throw fail('登录响应缺少会话有效期');
+    const previous = session;
+    if (data.user?.is_anonymous === false) {
+      removeAnonymous(previous);
+      anonymousUserId = null;
+    }
     persist({ access_token: data.access_token, refresh_token: data.refresh_token, expires_at: expiresAt });
+    // Refresh responses may omit the user; retain the identity already confirmed by getUser.
+    const durable = readAnonymous();
+    if (!durable || sameSession(durable, previous)) persistAnonymous();
   }
   async function token() {
     if (!session) throw fail('请先登录云归档', 401);
@@ -163,9 +210,19 @@ export function createCloudArchive(config = {}, deps = {}) {
   async function authJson(path, options) { return jsonRequest(path, { ...options, token: await token() }); }
   async function getUser() {
     if (!session) return null;
+    const version = generation;
     try {
       const { data } = await authRequest('/auth/v1/user');
+      if (version !== generation) return null;
       assertUuid(data?.id, '用户 ID');
+      if (data.is_anonymous === true) {
+        anonymousUserId = data.id;
+        const durable = readAnonymous();
+        if (!durable || sameSession(durable, session)) persistAnonymous();
+      } else {
+        removeAnonymous(session);
+        anonymousUserId = null;
+      }
       return data;
     } catch (error) { if (error.status === 401) return null; throw error; }
   }
@@ -176,7 +233,7 @@ export function createCloudArchive(config = {}, deps = {}) {
   }
   async function signIn(email, password) {
     if (typeof email !== 'string' || !email.trim() || typeof password !== 'string' || !password) throw fail('请填写邮箱和密码');
-    clear();
+    clear(false);
     const version = generation;
     const { data } = await jsonRequest('/auth/v1/token?grant_type=password', { method: 'POST', body: { email: email.trim(), password } });
     if (version !== generation) throw fail('登录已取消');
@@ -186,7 +243,7 @@ export function createCloudArchive(config = {}, deps = {}) {
   // 游客自动归档：服务端需在 Authentication → Sign In / Providers 开启 Anonymous sign-ins。
   // 每个浏览器首次渲染时静默创建一个匿名身份；档案触发器仍会生成 member 档案，管理员可看全部记录。
   async function signInAnonymously() {
-    clear();
+    clear(false);
     const version = generation;
     const label = `匿名-${Math.random().toString(36).slice(2, 6)}`;
     const { data } = await jsonRequest('/auth/v1/signup', { method: 'POST', body: { data: { display_name: label } } });
@@ -195,8 +252,9 @@ export function createCloudArchive(config = {}, deps = {}) {
     return requireUser();
   }
   async function signOut() {
+    const version = generation;
     try { if (session) await authJson('/auth/v1/logout', { method: 'POST' }); }
-    finally { clear(); }
+    finally { if (version === generation) clear(); }
   }
   async function getProfile() {
     const user = await requireUser();
@@ -226,7 +284,7 @@ export function createCloudArchive(config = {}, deps = {}) {
     try {
       await authRequest(objectUrl(path), { method: 'POST', body: image.blob, headers: { 'Content-Type': image.blob.type, 'x-upsert': 'false' } });
     } catch (error) {
-      if (error.status !== 409 && !['Duplicate', 'ResourceAlreadyExists', '409'].includes(error.code)) throw error;
+      if (error.status !== 409 && !['Duplicate', 'KeyAlreadyExists', 'ResourceAlreadyExists', '409'].includes(error.code)) throw error;
       // A previous/concurrent attempt owns this stable path. Never overwrite it.
     }
   }
@@ -234,7 +292,29 @@ export function createCloudArchive(config = {}, deps = {}) {
     const user = await requireUser();
     const owner = assertUuid(user.id, '用户 ID');
     const id = await stableId(owner, payload?.localId);
-    if (await findRecord(id)) return { id };
+    const existing = await findRecord(id);
+    if (existing) {
+      if (existing.id !== id || existing.owner_id !== owner) throw fail('云归档记录与当前用户不匹配');
+      const paths = entryPaths(existing);
+      const missing = [];
+      // A partial delete can leave the row pointing at missing objects. Only a
+      // confirmed 404 permits repair; network and authorization failures must surface.
+      for (const [kind, path] of Object.entries(paths)) {
+        if (!path) continue;
+        try { await authRequest(objectUrl(path), { responseType: 'blob' }); }
+        catch (error) {
+          if (error.status !== 404) throw error;
+          missing.push({ kind, path });
+        }
+      }
+      const repairs = missing.map(({ kind, path }) => {
+        const image = imageBlob(kind === 'result' ? payload.imageDataUrl : payload.thumbnail);
+        if (!path.endsWith(`.${image.ext}`)) throw fail('重试图片格式必须与云归档一致');
+        return { path, image };
+      });
+      for (const { path, image } of repairs) await upload(path, image);
+      return { id };
+    }
     const result = imageBlob(payload.imageDataUrl);
     const thumb = payload.thumbnail == null || payload.thumbnail === '' ? null : imageBlob(payload.thumbnail);
     for (const field of ['prompt', 'model', 'size']) if (typeof payload[field] !== 'string') throw fail(`${field} 必须为字符串`);
@@ -264,8 +344,8 @@ export function createCloudArchive(config = {}, deps = {}) {
     // No `or` grammar is built from user input. Encode the complete literal operand.
     if (search) params.set('prompt', `ilike.%${search.replace(/[\\%_*,()"']/g, char => `\\${char}`)}%`);
     if (owner) params.set('owner_id', `eq.${assertUuid(owner, 'owner')}`);
-    const start = from ? isoDate(from) : '';
-    const end = to ? isoDate(to, true) : '';
+    const start = from ? isoDate(from, { local: true }) : '';
+    const end = to ? isoDate(to, { local: true, endOfDay: true }) : '';
     if (start && end && start > end) throw fail('开始日期不能晚于结束日期');
     if (start) params.append('created_at', `gte.${start}`);
     if (end) params.append('created_at', `lte.${end}`);
