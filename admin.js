@@ -24,6 +24,7 @@ async function readImage(entry, kind) {
 const errorText = (error) => error?.message || '操作失败，请稍后重试。';
 const node = (tag, className, text) => { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = String(text); return el; };
 const dateText = value => { const date = new Date(value); return Number.isNaN(date.getTime()) ? String(value || '—') : date.toLocaleString('zh-CN', { hour12: false }); };
+const ownerLabel = entry => { const profile = Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles; return entry.submitted_by || profile?.display_name || profile?.email || '匿名成员'; };
 function blobUrl(blob) { const url = URL.createObjectURL(blob); urls.add(url); return url; }
 function revoke(url) { if (url) { URL.revokeObjectURL(url); urls.delete(url); } }
 function clearThumbs() { for (const url of thumbUrls) revoke(url); thumbUrls.clear(); imageQueue.splice(0); }
@@ -76,8 +77,7 @@ function renderEntry(entry, token) {
   const frame = node('div', 'thumb-frame', '正在读取缩略图…');
   const content = node('div', 'card-content');
   const profile = Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles;
-  const ownerLabel = profile?.display_name || profile?.email || '匿名成员';
-  content.append(node('p', 'card-owner', ownerLabel), node('p', 'card-email', profile?.email || ''), node('p', 'card-meta', dateText(entry.created_at)), node('p', 'card-meta', `${entry.model || '—'} · ${entry.size || '—'}`), node('p', 'card-prompt', entry.prompt || '无提示词'));
+  content.append(node('p', 'card-owner', ownerLabel(entry)), node('p', 'card-email', profile?.email || ''), node('p', 'card-meta', dateText(entry.created_at)), node('p', 'card-meta', `${entry.model || '—'} · ${entry.size || '—'}`), node('p', 'card-prompt', entry.prompt || '无提示词'));
   const button = node('button', 'detail-open', '查看详情'); button.type = 'button'; button.addEventListener('click', () => openDetail(entry, button)); content.append(button); card.append(frame, content);
   imageQueue.push({ entry, token, frame }); return card;
 }
@@ -95,7 +95,7 @@ async function loadRecords() {
     ui.count.textContent = `共 ${total} 条记录 · 每页 ${LIMIT} 条`; ui.listState.hidden = result.entries.length > 0; ui.listState.textContent = '没有符合条件的渲染记录。';
     ui.renderList.replaceChildren(...result.entries.map(entry => renderEntry(entry, token)));
     ui.ownerOptions.replaceChildren(); const owners = new Map();
-    for (const entry of result.entries) { const profile = Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles; owners.set(entry.owner_id, profile?.display_name || profile?.email || '匿名成员'); }
+    for (const entry of result.entries) owners.set(entry.owner_id, ownerLabel(entry));
     for (const [id, name] of owners) { const option = node('option'); option.value = id; option.label = name; ui.ownerOptions.append(option); }
     ui.pageInfo.textContent = `第 ${Math.floor(offset / LIMIT) + 1} 页${result.entries.length ? ` · ${offset + 1}–${offset + result.entries.length}` : ''}`;
     ui.previous.disabled = offset === 0; ui.next.disabled = !result.hasMore;
@@ -109,7 +109,7 @@ async function openDetail(entry, button) {
   closeDetail(); opener = button; selected = entry; const token = ++detailEpoch;
   ui.detailPrompt.textContent = entry.prompt || ''; ui.detailMessage.textContent = ''; ui.download.disabled = true; ui.deleteRender.disabled = false; ui.copyPrompt.textContent = '复制提示词'; ui.imageState.hidden = false; ui.imageState.textContent = '正在读取原图…';
   const profile = Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles;
-  const rows = [['人员', profile?.display_name || profile?.email || '匿名成员'], ['邮箱', profile?.email || '—'], ['用户 ID', entry.owner_id], ['记录 ID', entry.id], ['生成时间', dateText(entry.created_at)], ['模型', entry.model || '—'], ['尺寸', entry.size || '—'], ['参考图', entry.reference_count ?? 0]];
+  const rows = [['人员', ownerLabel(entry)], ['邮箱', profile?.email || '—'], ['用户 ID', entry.owner_id], ['记录 ID', entry.id], ['生成时间', dateText(entry.created_at)], ['模型', entry.model || '—'], ['尺寸', entry.size || '—'], ['参考图', entry.reference_count ?? 0]];
   ui.metadata.replaceChildren(...rows.flatMap(([name, value]) => [node('dt', '', name), node('dd', '', value)]));
   ui.detailDialog.showModal(); ui.closeDetail.focus();
   try {

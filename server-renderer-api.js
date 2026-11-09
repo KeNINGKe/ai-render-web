@@ -35,6 +35,8 @@ export function createServerRendererApi(config = {}, {
       error.status = response.status;
       const retryAfter = Number(response.headers.get("retry-after"));
       if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter;
+      if (data?.generated !== undefined) error.generated = data.generated;
+      if (data?.historyId) error.historyId = data.historyId;
       if (response.status === 401 || response.status === 429 || data?.pauseQueue) error.pauseQueue = true;
       throw error;
     }
@@ -50,6 +52,7 @@ export function createServerRendererApi(config = {}, {
     },
     getStatus: () => request("/api/seedream/status"),
     render: (payload, { signal } = {}) => request("/api/seedream/render", { body: payload, signal }),
+    recoverRender: (id) => request("/api/seedream/recover", { body: { id } }),
     listHistory: () => request("/api/render-history"),
     getHistoryImage: (id, kind = "result") => request(imagePath("/api/render-history", id, kind), { blob: true }),
     deleteHistory: (id) => request("/api/render-history/delete", { body: { id } }),
