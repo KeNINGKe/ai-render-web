@@ -50,8 +50,8 @@
     },
     {
       "path": "index.html",
-      "bytes": 16961,
-      "sha256": "5a64a67a96cb3b8496c96a4e1534bab4d8a3d5886588d9e835d17edc880fbe94"
+      "bytes": 16910,
+      "sha256": "7408a90ce2277bb8d3f79db4282ac9ee4d1516c30e039b3367f351f1f5c45efa"
     },
     {
       "path": "mask-tools.js",
